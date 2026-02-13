@@ -42,8 +42,9 @@
   - 유스케이스 + 포트
   - 예: `usecases/review_pr/*`, `ports.rs`
 - `src/interface`
-  - CLI + composition root
-  - 예: `cli.rs`, `composition.rs`
+  - 인바운드 인터페이스 계층
+  - 현재는 CLI 인터페이스만 구현: `src/interface/cli/*`
+  - 예: `src/interface/cli/command.rs`, `src/interface/cli/repl.rs`, `src/interface/cli/composition.rs`
 - `src/infrastructure`
   - 아웃바운드 어댑터 구현
   - 예: `vcs/*`, `providers/*`, `config/*`, `render.rs`, `adapters/*`
@@ -74,6 +75,56 @@ cargo run --bin prpilot -- "https://github.com/org/repo/pull/123" --dry-run
 
 ```bash
 ./target/release/prpilot "https://github.com/org/repo/pull/123"
+```
+
+## GitLab 배포 (Runner 없이)
+
+러너가 없어도 로컬 머신에서 직접 배포할 수 있습니다.
+`scripts/` 아래 스크립트가 **로컬 빌드 -> GitLab Package 업로드 -> (선택) Release 생성**까지 처리합니다.
+
+### 1) macOS/Linux에서 배포
+
+```bash
+GITLAB_TOKEN=<YOUR_TOKEN> \
+scripts/publish-gitlab.sh \
+  --project-id <PROJECT_ID> \
+  --tag v0.1.0 \
+  --gitlab-url https://gitlab.your-company.com
+```
+
+### 2) Windows에서 배포
+
+```powershell
+$env:GITLAB_TOKEN=\"<YOUR_TOKEN>\"
+.\\scripts\\publish-gitlab.ps1 `
+  -ProjectId <PROJECT_ID> `
+  -Tag v0.1.0 `
+  -GitLabUrl https://gitlab.your-company.com
+```
+
+### 3) 사용자 설치 (전역 실행 가능)
+
+macOS/Linux:
+```bash
+scripts/install-gitlab.sh \
+  --project-id <PROJECT_ID> \
+  --tag v0.1.0 \
+  --gitlab-url https://gitlab.your-company.com \
+  --token <YOUR_TOKEN>
+```
+
+Windows:
+```powershell
+.\\scripts\\install-gitlab.ps1 `
+  -ProjectId <PROJECT_ID> `
+  -Tag v0.1.0 `
+  -GitLabUrl https://gitlab.your-company.com `
+  -Token <YOUR_TOKEN>
+```
+
+설치 후 어느 경로에서든 아래처럼 실행됩니다.
+```bash
+prpilot --help
 ```
 
 ## 사용법
