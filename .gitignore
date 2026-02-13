@@ -1,0 +1,16 @@
+/target/
+
+# IDE
+/.idea/
+*.iml
+
+# macOS
+.DS_Store
+
+# Local environment files
+.env
+.env.*
+
+# prpilot local-only files
+/prpilot.config.json
+/review-guide.md
