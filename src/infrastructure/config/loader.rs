@@ -82,6 +82,30 @@ pub fn config_paths() -> Vec<PathBuf> {
     dedup_paths(paths)
 }
 
+/// 편집 대상 설정 파일 경로를 결정한다.
+/// 로딩된 파일 중 최고 우선순위 경로를 반환하고,
+/// 로딩된 파일이 없으면 `.prpilot/config.json`을 생성한다.
+pub(crate) fn editable_config_path() -> Result<PathBuf> {
+    let loaded = load_merged_config();
+
+    // 로딩 성공 시 최고 우선순위(마지막) 경로를 반환한다.
+    if let Ok(lc) = loaded
+        && let Some(last) = lc.loaded_paths.last()
+    {
+        return Ok(last.clone());
+    }
+
+    // 설정 파일이 없으면 프로젝트 로컬 기본 템플릿을 생성한다.
+    let fallback = PathBuf::from(".prpilot/config.json");
+    if let Some(parent) = fallback.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create directory {}", parent.display()))?;
+    }
+    fs::write(&fallback, "{}\n")
+        .with_context(|| format!("failed to create default config at {}", fallback.display()))?;
+    Ok(fallback)
+}
+
 fn dedup_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
     let mut out = Vec::new();
     for p in paths {

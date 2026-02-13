@@ -1,5 +1,7 @@
 //! 설정 저장소 포트 구현 어댑터.
 
+use std::path::PathBuf;
+
 use anyhow::Result;
 
 use crate::application::ports::ConfigRepository;
@@ -15,5 +17,9 @@ impl ConfigRepository for JsonConfigRepository {
 
     fn inspect_pretty_json(&self) -> Result<String> {
         config::Config::inspect_pretty_json()
+    }
+
+    fn editable_config_path(&self) -> Result<PathBuf> {
+        config::Config::editable_path()
     }
 }

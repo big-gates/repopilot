@@ -24,7 +24,7 @@ const SUGGESTIONS: [Suggestion; 3] = [
     Suggestion {
         slash: "/config",
         description: "show effective merged config",
-        usage: "/config",
+        usage: "/config [edit]",
     },
     Suggestion {
         slash: "/review",
@@ -122,9 +122,9 @@ fn read_line_interactive(initial: &str) -> Result<Option<String>> {
 
                 match key.code {
             KeyCode::Enter => {
-                // `/review` 단독 명령은 즉시 실행하지 않고 인자 입력 상태로 확장한다.
-                if should_expand_review_input(&input, &suggestions, selected_idx) {
-                    input = "/review ".to_string();
+                // 인자가 필요한 명령은 즉시 실행하지 않고 인자 입력 상태로 확장한다.
+                if let Some(expanded) = expand_input(&input, &suggestions, selected_idx) {
+                    input = expanded;
                     cursor_chars = input.chars().count();
                     continue;
                 }
@@ -168,6 +168,9 @@ fn read_line_interactive(initial: &str) -> Result<Option<String>> {
             KeyCode::Tab => {
                 if !suggestions.is_empty() && input.starts_with('/') && !input.contains(' ') {
                     input = suggestions[selected_idx].slash.to_string();
+                    cursor_chars = input.chars().count();
+                } else if let Some(completed) = complete_subcommand(&input) {
+                    input = completed;
                     cursor_chars = input.chars().count();
                 }
             }
@@ -225,18 +228,84 @@ fn finalize_input(input: &str, suggestions: &[&Suggestion], selected_idx: usize)
     input.to_string()
 }
 
-fn should_expand_review_input(input: &str, suggestions: &[&Suggestion], selected_idx: usize) -> bool {
+/// 인자가 필요한 명령을 단독 입력 시 공백을 추가해 확장한다.
+fn expand_input(input: &str, suggestions: &[&Suggestion], selected_idx: usize) -> Option<String> {
     if input.contains(' ') {
-        return false;
+        return None;
     }
 
-    if input == "/review" {
-        return true;
+    const EXPANDABLE: &[&str] = &["/review", "/config"];
+
+    if EXPANDABLE.contains(&input) {
+        return Some(format!("{input} "));
     }
 
-    input.starts_with('/')
+    if input.starts_with('/')
         && !suggestions.is_empty()
-        && suggestions[selected_idx].slash == "/review"
+        && EXPANDABLE.contains(&suggestions[selected_idx].slash)
+    {
+        return Some(format!("{} ", suggestions[selected_idx].slash));
+    }
+
+    None
+}
+
+/// 명령별 실시간 힌트를 통합 반환한다.
+fn realtime_hint(input: &str) -> Option<(Color, String)> {
+    review_realtime_hint(input).or_else(|| config_realtime_hint(input))
+}
+
+/// `/config` 서브커맨드 실시간 힌트를 반환한다.
+fn config_realtime_hint(input: &str) -> Option<(Color, String)> {
+    let trimmed = input.trim_start();
+    let after = trimmed.strip_prefix("/config")?;
+
+    if !after.is_empty() && !after.starts_with(' ') {
+        return None;
+    }
+
+    let rest = after.trim();
+    if rest.is_empty() {
+        return Some((
+            Color::Yellow,
+            "hint: /config [edit]".to_string(),
+        ));
+    }
+
+    if rest == "edit" {
+        return Some((
+            Color::Green,
+            "ready: press Enter to open $EDITOR".to_string(),
+        ));
+    }
+
+    if "edit".starts_with(rest) {
+        return Some((
+            Color::Yellow,
+            "hint: /config [edit]".to_string(),
+        ));
+    }
+
+    Some((Color::Red, format!("error: unknown subcommand `{rest}`")))
+}
+
+/// 서브커맨드 탭 완성을 시도한다.
+fn complete_subcommand(input: &str) -> Option<String> {
+    let trimmed = input.trim_start();
+    let after = trimmed.strip_prefix("/config")?;
+
+    if !after.starts_with(' ') {
+        return None;
+    }
+
+    let rest = after.trim();
+    let subs = ["edit"];
+    let matches: Vec<&str> = subs.iter().copied().filter(|s| s.starts_with(rest)).collect();
+    if matches.len() == 1 && rest != matches[0] {
+        return Some(format!("/config {}", matches[0]));
+    }
+
+    None
 }
 
 fn review_usage_hint(input: &str) -> Option<&'static str> {
@@ -314,7 +383,7 @@ fn render_frame(
     let total_rows = h as usize;
 
     // 힌트/추천 유무에 따라 패널 높이를 동적으로 결정한다.
-    let has_hint = review_realtime_hint(input).is_some() || review_usage_hint(input).is_some();
+    let has_hint = realtime_hint(input).is_some() || review_usage_hint(input).is_some();
     let hint_rows = usize::from(has_hint);
     let suggestion_rows = suggestions.len();
     let extra_rows = hint_rows + suggestion_rows;
@@ -362,7 +431,7 @@ fn render_frame(
     // 하단 구분선 아래: 배경 없이 힌트와 추천을 표시한다.
     let mut next_row = extra_start;
 
-    if let Some((color, line)) = review_realtime_hint(input) {
+    if let Some((color, line)) = realtime_hint(input) {
         draw_line_at_with_fg(
             stdout,
             next_row as u16,

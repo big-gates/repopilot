@@ -6,6 +6,8 @@ mod loader;
 mod types;
 mod utils;
 
+use std::path::PathBuf;
+
 use anyhow::Result;
 
 pub use inspection::{
@@ -32,5 +34,10 @@ impl Config {
     /// 설정 진단 결과를 사람이 읽기 쉬운 JSON으로 반환한다.
     pub fn inspect_pretty_json() -> Result<String> {
         Ok(serde_json::to_string_pretty(&Self::inspect()?)?)
+    }
+
+    /// 편집 대상 설정 파일 경로를 반환한다.
+    pub fn editable_path() -> Result<PathBuf> {
+        loader::editable_config_path()
     }
 }

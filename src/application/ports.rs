@@ -1,5 +1,7 @@
 //! 애플리케이션 계층이 의존하는 포트(추상 인터페이스) 모음.
 
+use std::path::PathBuf;
+
 use anyhow::Result;
 use async_trait::async_trait;
 
@@ -13,6 +15,8 @@ use crate::infrastructure::config::{Config, HostConfig};
 pub trait ConfigRepository: Send + Sync {
     fn load(&self) -> Result<Config>;
     fn inspect_pretty_json(&self) -> Result<String>;
+    /// 편집 가능한 설정 파일 경로를 반환한다.
+    fn editable_config_path(&self) -> Result<PathBuf>;
 }
 
 /// URL 입력값을 도메인 대상 식별자로 변환하는 포트.

@@ -1,5 +1,6 @@
 //! 애플리케이션 조립(composition root) 모듈.
 
+use crate::application::usecases::edit_config::EditConfigUseCase;
 use crate::application::usecases::inspect_config::InspectConfigUseCase;
 use crate::application::usecases::review_pr::ReviewPrUseCase;
 use crate::infrastructure::adapters::{
@@ -33,6 +34,13 @@ impl AppComposition {
             provider_factory: ProviderFactoryAdapter,
             renderer: MarkdownRendererAdapter,
             reporter: ConsoleReporter::with_provider_panel(provider_panel_enabled),
+        }
+    }
+
+    /// 설정 편집 유스케이스를 생성한다.
+    pub fn edit_config_usecase(&self) -> EditConfigUseCase<'_> {
+        EditConfigUseCase {
+            config_repo: &self.config_repo,
         }
     }
 

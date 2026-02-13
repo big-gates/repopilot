@@ -1,8 +1,9 @@
 //! `prpilot` 대화형 쉘(REPL) 인터페이스.
 
 use std::io::{self, IsTerminal, Write};
+use std::process::Command;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::domain::review::RunOptions;
 use crate::interface::cli::composition::AppComposition;
@@ -49,6 +50,7 @@ pub async fn run_repl(composition: &AppComposition) -> Result<()> {
 enum ReplCommand {
     Exit,
     InspectConfig,
+    EditConfig,
     /// `/review`만 입력된 상태. 다음 입력 라운드에 `/review `를 프리필한다.
     ReviewNeedsArgs,
     Review(RunOptions),
@@ -60,6 +62,25 @@ async fn execute_command(composition: &AppComposition, command: ReplCommand) -> 
         ReplCommand::InspectConfig => {
             let json = composition.inspect_config_usecase().execute()?;
             println!("{json}");
+            Ok(())
+        }
+        ReplCommand::EditConfig => {
+            let path = composition.edit_config_usecase().execute()?;
+            let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
+
+            // 에디터가 정상 동작하도록 raw mode를 해제한다.
+            let _ = crossterm::terminal::disable_raw_mode();
+            let status = Command::new(&editor)
+                .arg(&path)
+                .status()
+                .with_context(|| format!("failed to launch editor: {editor}"))?;
+            let _ = crossterm::terminal::enable_raw_mode();
+
+            if status.success() {
+                println!("config saved: {}", path.display());
+            } else {
+                eprintln!("editor exited with: {status}");
+            }
             Ok(())
         }
         ReplCommand::ReviewNeedsArgs => Ok(()),
@@ -83,10 +104,13 @@ fn parse_repl_command(input: &str) -> Result<ReplCommand, String> {
     match parts[0] {
         "/exit" | "/quit" => Ok(ReplCommand::Exit),
         "/config" => {
-            if parts.len() != 1 {
-                return Err("usage: /config".to_string());
+            if parts.len() == 1 {
+                return Ok(ReplCommand::InspectConfig);
             }
-            Ok(ReplCommand::InspectConfig)
+            if parts.len() == 2 && parts[1] == "edit" {
+                return Ok(ReplCommand::EditConfig);
+            }
+            Err("usage: /config [edit]".to_string())
         }
         "/review" => {
             if parts.len() == 1 {
@@ -148,7 +172,7 @@ fn print_welcome() {
     let title = paint("prpilot interactive shell", "1;36", interactive);
     let subtitle = paint("multi-agent review cockpit", "2;37", interactive);
     let cmd_palette = paint("/", "1;33", interactive);
-    let cmd_config = paint("/config", "1;32", interactive);
+    let cmd_config = paint("/config [edit]", "1;32", interactive);
     let cmd_review = paint("/review <url> [--dry-run] [--force]", "1;35", interactive);
     let cmd_exit = paint("/exit", "1;31", interactive);
 
