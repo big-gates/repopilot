@@ -80,17 +80,21 @@ cargo run --bin prpilot -- "https://github.com/org/repo/pull/123" --dry-run
 ## GitLab 배포 (Runner 없이)
 
 러너가 없어도 로컬 머신에서 직접 배포할 수 있습니다.
-`scripts/` 아래 스크립트가 **로컬 빌드 -> GitLab Package 업로드 -> (선택) Release 생성**까지 처리합니다.
+`scripts/` 아래 스크립트가 **로컬 태그 푸시 -> 빌드 -> Package 업로드 -> Release 생성/업데이트**까지 처리합니다.
 
 ### 1) macOS/Linux에서 배포
 
 ```bash
 GITLAB_TOKEN=<YOUR_TOKEN> \
 scripts/publish-gitlab.sh \
-  --project-id <PROJECT_ID> \
+  --project-id <PROEJCT_ID> \
   --tag v0.1.0 \
   --gitlab-url https://gitlab.your-company.com
 ```
+
+옵션:
+- 태그 푸시를 건너뛰려면 `--no-tag-push`
+- Release 생성/업데이트를 건너뛰려면 `--no-release`
 
 ### 2) Windows에서 배포
 
@@ -102,12 +106,16 @@ $env:GITLAB_TOKEN=\"<YOUR_TOKEN>\"
   -GitLabUrl https://gitlab.your-company.com
 ```
 
+Windows 배포 스크립트도 기본적으로 태그를 생성/푸시합니다.
+- 태그 푸시를 건너뛰려면 `-NoTagPush`
+- Release 생성/업데이트를 건너뛰려면 `-NoRelease`
+
 ### 3) 사용자 설치 (전역 실행 가능)
 
 macOS/Linux:
 ```bash
 scripts/install-gitlab.sh \
-  --project-id <PROJECT_ID> \
+  --project-id <PROEJCT_ID> \
   --tag v0.1.0 \
   --gitlab-url https://gitlab.your-company.com \
   --token <YOUR_TOKEN>

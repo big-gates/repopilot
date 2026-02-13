@@ -15,6 +15,7 @@ Options:
   --token <token>          GitLab PAT (default: GITLAB_TOKEN or GL_TOKEN)
   --gitlab-url <url>       GitLab base URL (default: https://gitlab.com)
   --package-name <name>    Generic package name (default: prpilot)
+  --no-tag-push            Skip git tag create/push
   --no-release             Skip release creation API call
 
 Examples:
@@ -58,6 +59,7 @@ TOKEN="${GITLAB_TOKEN:-${GL_TOKEN:-}}"
 GITLAB_URL="${GITLAB_URL:-https://gitlab.com}"
 PACKAGE_NAME="prpilot"
 CREATE_RELEASE="1"
+PUSH_TAG="1"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -80,6 +82,10 @@ while [[ $# -gt 0 ]]; do
     --package-name)
       PACKAGE_NAME="${2:-}"
       shift 2
+      ;;
+    --no-tag-push)
+      PUSH_TAG="0"
+      shift
       ;;
     --no-release)
       CREATE_RELEASE="0"
@@ -112,6 +118,7 @@ require_cmd cargo
 require_cmd curl
 require_cmd tar
 require_cmd shasum
+require_cmd git
 
 OS_NAME="$(detect_os)"
 ARCH_NAME="$(detect_arch)"
@@ -122,7 +129,32 @@ PACKAGE_URL="${GITLAB_URL%/}/api/v4/projects/${PROJECT_ID}/packages/generic/${PA
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-echo "[1/4] building release binary"
+if [[ "$PUSH_TAG" == "1" ]]; then
+  echo "[1/5] ensuring git tag exists and is pushed"
+  if [[ ! -d .git ]]; then
+    echo "error: current directory is not a git repository (.git missing)" >&2
+    exit 1
+  fi
+
+  if git rev-parse --verify --quiet "refs/tags/${TAG}" >/dev/null; then
+    echo "tag exists locally: ${TAG}"
+  else
+    git tag "${TAG}"
+    echo "tag created locally: ${TAG}"
+  fi
+
+  if git push origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+    echo "tag pushed to origin: ${TAG}"
+  else
+    echo "error: failed to push tag '${TAG}' to origin." >&2
+    echo "hint: check remote permissions or whether same tag exists on different commit." >&2
+    exit 1
+  fi
+else
+  echo "[1/5] skip tag push (--no-tag-push)"
+fi
+
+echo "[2/5] building release binary"
 cargo build --release
 
 if [[ ! -f "$BIN_PATH" ]]; then
@@ -130,12 +162,12 @@ if [[ ! -f "$BIN_PATH" ]]; then
   exit 1
 fi
 
-echo "[2/4] packaging ${ARCHIVE_NAME}"
+echo "[3/5] packaging ${ARCHIVE_NAME}"
 cp "$BIN_PATH" "$TMP_DIR/prpilot"
 tar -C "$TMP_DIR" -czf "$ARCHIVE_NAME" prpilot
 SHA256="$(shasum -a 256 "$ARCHIVE_NAME" | awk '{print $1}')"
 
-echo "[3/4] uploading package -> ${PACKAGE_URL}"
+echo "[4/5] uploading package -> ${PACKAGE_URL}"
 curl --fail --show-error --silent \
   --header "PRIVATE-TOKEN: ${TOKEN}" \
   --upload-file "$ARCHIVE_NAME" \
@@ -145,7 +177,7 @@ echo "uploaded: ${ARCHIVE_NAME}"
 echo "sha256 : ${SHA256}"
 
 if [[ "$CREATE_RELEASE" == "1" ]]; then
-  echo "[4/4] creating/updating release metadata"
+  echo "[5/5] creating/updating release metadata"
   RELEASE_ENDPOINT="${GITLAB_URL%/}/api/v4/projects/${PROJECT_ID}/releases"
   RELEASE_JSON="${TMP_DIR}/release.json"
 
@@ -166,16 +198,28 @@ if [[ "$CREATE_RELEASE" == "1" ]]; then
 }
 JSON
 
-  if ! curl --fail --show-error --silent \
+  if curl --fail --show-error --silent \
     --request POST \
     --header "PRIVATE-TOKEN: ${TOKEN}" \
     --header "Content-Type: application/json" \
     --data @"$RELEASE_JSON" \
     "$RELEASE_ENDPOINT" >/dev/null; then
-    echo "warn: release creation failed (maybe already exists). package upload succeeded."
-  else
     echo "release created: ${TAG}"
+  else
+    # 이미 release가 있으면 PUT으로 업데이트 시도한다.
+    if curl --fail --show-error --silent \
+      --request PUT \
+      --header "PRIVATE-TOKEN: ${TOKEN}" \
+      --header "Content-Type: application/json" \
+      --data @"$RELEASE_JSON" \
+      "${RELEASE_ENDPOINT}/${TAG}" >/dev/null; then
+      echo "release updated: ${TAG}"
+    else
+      echo "warn: release create/update failed. package upload succeeded."
+    fi
   fi
+else
+  echo "[5/5] skip release create/update (--no-release)"
 fi
 
 echo
