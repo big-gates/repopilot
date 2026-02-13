@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::domain::review::{
-    AgentComment, AgentReaction, ProviderResponse, ReviewComment, ReviewRequest, TokenUsage,
+    AgentComment, AgentReaction, ProviderResponse, ReviewComment, ReviewRequest,
 };
 use crate::domain::target::ReviewTarget;
 use crate::infrastructure::config::{Config, HostConfig};
@@ -64,9 +64,7 @@ pub trait MarkdownRenderer: Send + Sync {
         target_url: &str,
         reactions: &[AgentReaction],
         agent_comment_refs: &[(String, String)],
-        usage_rows: &[(String, TokenUsage)],
     ) -> String;
-    fn format_usage(&self, usage: &TokenUsage) -> String;
 }
 
 /// 콘솔/로그 출력 추상화 포트.

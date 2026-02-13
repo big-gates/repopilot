@@ -7,7 +7,7 @@ use crate::domain::review::{ProviderResponse, ReviewRequest};
 use crate::infrastructure::config::{Config, ProviderCommandSpec};
 
 use super::{
-    ReviewProvider, build_user_prompt, command_available, run_provider_command,
+    ReviewProvider, build_primary_prompt, command_available, run_provider_command,
 };
 
 pub struct AnthropicProvider {
@@ -38,11 +38,7 @@ impl ReviewProvider for AnthropicProvider {
 
     async fn review(&self, request: &ReviewRequest) -> Result<ProviderResponse> {
         // 공통 프롬프트 형식으로 1차 리뷰를 실행한다.
-        let prompt = format!(
-            "System instructions:\n{}\n\n{}",
-            request.system_prompt,
-            build_user_prompt(request)
-        );
+        let prompt = build_primary_prompt(request);
         run_provider_command(self.name(), &self.spec, &prompt).await
     }
 

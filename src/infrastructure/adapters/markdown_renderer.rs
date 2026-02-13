@@ -1,7 +1,7 @@
 //! 마크다운 렌더링 포트 구현 어댑터.
 
 use crate::application::ports::MarkdownRenderer;
-use crate::domain::review::{AgentComment, AgentReaction, TokenUsage};
+use crate::domain::review::{AgentComment, AgentReaction};
 use crate::infrastructure::render;
 
 /// 마크다운 렌더링 어댑터.
@@ -22,18 +22,7 @@ impl MarkdownRenderer for MarkdownRendererAdapter {
         target_url: &str,
         reactions: &[AgentReaction],
         agent_comment_refs: &[(String, String)],
-        usage_rows: &[(String, TokenUsage)],
     ) -> String {
-        render::render_final_summary_markdown(
-            sha,
-            target_url,
-            reactions,
-            agent_comment_refs,
-            usage_rows,
-        )
-    }
-
-    fn format_usage(&self, usage: &TokenUsage) -> String {
-        render::format_usage(usage)
+        render::render_final_summary_markdown(sha, target_url, reactions, agent_comment_refs)
     }
 }

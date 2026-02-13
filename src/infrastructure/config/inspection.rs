@@ -23,6 +23,7 @@ pub struct EffectiveDefaults {
     pub max_diff_bytes: usize,
     pub system_prompt: String,
     pub review_guide_path: Option<String>,
+    pub comment_language: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -73,6 +74,7 @@ impl ConfigInspection {
                 max_diff_bytes: loaded.config.max_diff_bytes(),
                 system_prompt: loaded.config.system_prompt(),
                 review_guide_path: loaded.config.defaults.review_guide_path.clone(),
+                comment_language: loaded.config.comment_language().code().to_string(),
             },
             hosts,
             providers: ProvidersInspection {

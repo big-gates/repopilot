@@ -10,7 +10,7 @@ use anyhow::Result;
 use crate::application::ports::{
     ConfigRepository, MarkdownRenderer, ProviderFactory, Reporter, TargetResolver, VcsFactory,
 };
-use crate::domain::review::{RunOptions, TokenUsage};
+use crate::domain::review::RunOptions;
 
 use context::load_execution_context;
 use dedupe::{ClaimDecision, prepare_claim_comment};
@@ -58,7 +58,6 @@ impl<'a> ReviewPrUseCase<'a> {
         let providers = build_enabled_providers(self, &ctx)?;
         let primary_outcome = run_primary_reviews(self, &providers, &request).await;
 
-        let mut usage_totals = primary_outcome.usage_totals;
         let agent_comment_refs =
             publish_agent_comments(self, &options, &mut ctx, &primary_outcome.agent_comments)
                 .await?;
@@ -68,11 +67,8 @@ impl<'a> ReviewPrUseCase<'a> {
             &providers,
             &request,
             &primary_outcome.primary_results,
-            &mut usage_totals,
         )
         .await;
-
-        let usage_rows: Vec<(String, TokenUsage)> = usage_totals.into_values().collect();
 
         publish_final_summary(
             self,
@@ -81,14 +77,8 @@ impl<'a> ReviewPrUseCase<'a> {
             claim_comment_id.as_deref(),
             &reactions,
             &agent_comment_refs,
-            &usage_rows,
         )
         .await?;
-
-        self.reporter.section("Token Usage (Best Effort)");
-        for (name, usage) in &usage_rows {
-            self.reporter.status(name, &self.renderer.format_usage(usage));
-        }
 
         Ok(())
     }

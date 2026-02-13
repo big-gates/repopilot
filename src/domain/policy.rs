@@ -1,6 +1,8 @@
 //! 도메인 정책(중복 방지 규칙, 프롬프트 구성, 집계 규칙).
 
-use crate::domain::review::{ProviderRun, ReviewComment, ReviewMarkers, TokenUsage, UsageTotals};
+use crate::domain::review::{
+    CommentLanguage, ProviderRun, ReviewComment, ReviewMarkers, TokenUsage, UsageTotals,
+};
 
 pub fn markers_for_sha(sha: &str) -> ReviewMarkers {
     ReviewMarkers {
@@ -45,11 +47,15 @@ pub fn build_cross_agent_prompt(
     head_sha: &str,
     self_id: &str,
     self_name: &str,
+    comment_language: CommentLanguage,
     primary_results: &[ProviderRun],
 ) -> String {
     let mut out = String::new();
     out.push_str("You are participating in a multi-agent code review.\n");
-    out.push_str("Analyze other agents' findings and provide your perspective.\n\n");
+    out.push_str("Analyze other agents' findings and provide your perspective.\n");
+    out.push_str("Output language requirement:\n");
+    out.push_str(comment_language.prompt_instruction());
+    out.push_str("\n\n");
     out.push_str(&format!("Target URL: {}\n", target_url));
     out.push_str(&format!("Head SHA: {}\n\n", head_sha));
     out.push_str("Other agents' findings:\n\n");
@@ -64,9 +70,11 @@ pub fn build_cross_agent_prompt(
     }
 
     out.push_str(&format!(
-        "Now write {}'s reaction to the other agents.\n",
+        "Now write {}'s reaction to other agents.\n",
         self_name
     ));
-    out.push_str("Use Markdown with sections: Agreements, Disagreements, Missed Risks, Suggested Resolution.\n");
+    out.push_str(
+        "Use Markdown sections in this order: Agreements, Disagreements, Missed Risks, Suggested Resolution.\n",
+    );
     out
 }

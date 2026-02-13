@@ -7,16 +7,13 @@ use futures::future::join_all;
 
 use crate::application::ports::ProviderAgent;
 use crate::application::usecases::review_pr::{ReviewPrUseCase, context::ExecutionContext};
-use crate::domain::policy::{add_usage_total, build_cross_agent_prompt};
-use crate::domain::review::{
-    AgentComment, AgentReaction, ProviderRun, ReviewRequest, TokenUsage, UsageTotals,
-};
+use crate::domain::policy::build_cross_agent_prompt;
+use crate::domain::review::{AgentComment, AgentReaction, ProviderRun, ReviewRequest, TokenUsage};
 
 /// 1차 리뷰 실행 결과 묶음.
 pub(super) struct PrimaryReviewOutcome {
     pub primary_results: Vec<ProviderRun>,
     pub agent_comments: Vec<AgentComment>,
-    pub usage_totals: UsageTotals,
 }
 
 /// 리뷰 요청 객체를 구성한다(diff + system prompt).
@@ -45,6 +42,7 @@ pub(super) async fn build_review_request(
         head_sha: ctx.head_sha.clone(),
         diff,
         system_prompt,
+        comment_language: ctx.config.comment_language(),
     })
 }
 
@@ -135,25 +133,18 @@ pub(super) async fn run_primary_reviews(
         })
         .collect();
 
-    let mut usage_totals: UsageTotals = UsageTotals::new();
-    for run in &primary_results {
-        add_usage_total(&mut usage_totals, &run.id, &run.name, &run.usage);
-    }
-
     PrimaryReviewOutcome {
         primary_results,
         agent_comments,
-        usage_totals,
     }
 }
 
-/// provider 간 상호 코멘트를 병렬 실행하고 사용량 집계를 갱신한다.
+/// provider 간 상호 코멘트를 병렬 실행한다.
 pub(super) async fn run_cross_agent_reactions(
     use_case: &ReviewPrUseCase<'_>,
     providers: &[Box<dyn ProviderAgent>],
     request: &ReviewRequest,
     primary_results: &[ProviderRun],
-    usage_totals: &mut UsageTotals,
 ) -> Vec<AgentReaction> {
     if providers.len() <= 1 {
         return Vec::new();
@@ -162,13 +153,13 @@ pub(super) async fn run_cross_agent_reactions(
     use_case.reporter.section("Providers (Cross-Agent Reactions)");
 
     let reaction_futures = providers.iter().map(|provider| {
-        let provider_id = provider.id().to_string();
         let provider_name = provider.name().to_string();
         let prompt = build_cross_agent_prompt(
             &request.target_url,
             &request.head_sha,
-            &provider_id,
+            provider.id(),
             &provider_name,
+            request.comment_language,
             primary_results,
         );
 
@@ -183,8 +174,6 @@ pub(super) async fn run_cross_agent_reactions(
                             provider_name,
                             body: resp.content,
                         },
-                        provider_id,
-                        resp.usage,
                         false,
                         started.elapsed().as_secs_f32(),
                     )
@@ -197,8 +186,6 @@ pub(super) async fn run_cross_agent_reactions(
                             provider_name,
                             body: format!("_Error: {}_", err),
                         },
-                        provider_id,
-                        TokenUsage::default(),
                         true,
                         started.elapsed().as_secs_f32(),
                     )
@@ -209,7 +196,7 @@ pub(super) async fn run_cross_agent_reactions(
 
     let reaction_rows = join_all(reaction_futures).await;
     let mut reactions = Vec::new();
-    for (name, reaction, provider_id, usage, is_error, sec) in reaction_rows {
+    for (name, reaction, is_error, sec) in reaction_rows {
         if is_error {
             use_case
                 .reporter
@@ -219,7 +206,6 @@ pub(super) async fn run_cross_agent_reactions(
                 .reporter
                 .provider_status(&name, "done", Some(&format!("{sec:.1}s")));
         }
-        add_usage_total(usage_totals, &provider_id, &name, &usage);
         reactions.push(reaction);
     }
 

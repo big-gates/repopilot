@@ -15,7 +15,7 @@ use crate::domain::review::{ProviderResponse, ReviewRequest};
 use crate::infrastructure::config::{Config, command_exists};
 
 pub use command_runner::run_provider_command;
-pub use prompt::build_user_prompt;
+pub use prompt::build_primary_prompt;
 
 #[async_trait]
 pub trait ReviewProvider: Send + Sync {

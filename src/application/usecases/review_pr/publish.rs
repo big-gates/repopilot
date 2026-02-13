@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 
 use crate::application::usecases::review_pr::{ReviewPrUseCase, context::ExecutionContext};
 use crate::domain::policy::{agent_marker, find_comment_with_marker, upsert_comment_cache};
-use crate::domain::review::{AgentComment, AgentReaction, RunOptions, TokenUsage};
+use crate::domain::review::{AgentComment, AgentReaction, RunOptions};
 
 /// 개별 에이전트 코멘트를 출력(dry-run) 또는 게시(upsert)한다.
 pub(super) async fn publish_agent_comments(
@@ -64,14 +64,12 @@ pub(super) async fn publish_final_summary(
     claim_comment_id: Option<&str>,
     reactions: &[AgentReaction],
     agent_comment_refs: &[(String, String)],
-    usage_rows: &[(String, TokenUsage)],
 ) -> Result<()> {
     let final_markdown = use_case.renderer.render_final(
         &ctx.head_sha,
         ctx.target.url(),
         reactions,
         agent_comment_refs,
-        usage_rows,
     );
 
     if options.dry_run {

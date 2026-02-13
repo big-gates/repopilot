@@ -7,6 +7,8 @@ use std::fs;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::domain::review::CommentLanguage;
+
 pub const DEFAULT_MAX_DIFF_BYTES: usize = 120_000;
 pub const DEFAULT_SYSTEM_PROMPT: &str =
     "You are a strict senior code reviewer. Output Markdown with sections: Critical, Major, Minor, Suggestions.";
@@ -32,6 +34,8 @@ pub struct DefaultsConfig {
     pub system_prompt: Option<String>,
     /// 리뷰 지침 markdown 파일 경로
     pub review_guide_path: Option<String>,
+    /// 리뷰 코멘트 출력 언어(ko/en)
+    pub comment_language: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
@@ -87,6 +91,11 @@ impl Config {
             .unwrap_or_else(|| DEFAULT_SYSTEM_PROMPT.to_string())
     }
 
+    /// 리뷰 코멘트 출력 언어를 해석한다.
+    pub fn comment_language(&self) -> CommentLanguage {
+        CommentLanguage::from_config(self.defaults.comment_language.as_deref())
+    }
+
     /// 기본 시스템 프롬프트 + review guide 파일 내용을 합쳐 반환한다.
     pub fn resolved_system_prompt(&self) -> Result<String> {
         let mut prompt = self.system_prompt();
@@ -134,6 +143,9 @@ impl DefaultsConfig {
         }
         if other.review_guide_path.is_some() {
             self.review_guide_path = other.review_guide_path;
+        }
+        if other.comment_language.is_some() {
+            self.comment_language = other.comment_language;
         }
     }
 }

@@ -102,7 +102,7 @@ prpilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
 3. 에이전트별 개별 코멘트 생성/업데이트
 4. 각 에이전트가 다른 에이전트 의견에 대한 2차 코멘트 생성
 5. claim 코멘트를 최종 요약 코멘트로 업데이트
-6. 콘솔 마지막에 에이전트별 토큰 사용량(가능한 경우) 출력
+6. 모든 에이전트 응답을 한국어로 통일해 출력
 
 ## 설정 (JSON)
 
@@ -124,7 +124,8 @@ prpilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
   "defaults": {
     "max_diff_bytes": 120000,
     "system_prompt": "You are a strict senior code reviewer. Output Markdown with sections: Critical, Major, Minor, Suggestions.",
-    "review_guide_path": "./review-guide.md"
+    "review_guide_path": "./review-guide.md",
+    "comment_language": "ko"
   },
   "hosts": {
     "github.com": {
@@ -161,6 +162,7 @@ prpilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
 - `args`: 명령 인자 배열
 - `use_stdin` (선택): 설정하지 않으면 기본값 `true`
 - `defaults.review_guide_path`: 리뷰 지침 Markdown 파일 경로. 내용이 system prompt에 추가됨
+- `defaults.comment_language`: 리뷰 결과 언어 (`ko` 또는 `en`, 기본값 `ko`)
 
 추가 규칙:
 - `use_stdin=false`일 때 `args` 안에 `{prompt}`가 있으면 치환해서 전달
@@ -208,4 +210,4 @@ PRPILOT_CONFIG=/tmp/config.json prpilot config
 - diff가 `defaults.max_diff_bytes`를 초과하면 잘리고 `... (diff truncated)` 문구가 추가됩니다.
 - provider 커맨드가 PATH에서 발견되지 않으면 해당 provider는 자동 제외됩니다.
 - 일부 CLI가 `stdin is not a terminal` 오류를 내면 `prpilot`은 자동으로 stdin 없는 방식으로 1회 재시도합니다.
-- 토큰 사용량은 provider CLI 출력에서 파싱한 \"best effort\" 값이며, 일부 CLI에서는 `n/a`로 표시될 수 있습니다.
+- 1차 리뷰/상호 코멘트 프롬프트는 영어로 구성되며, 최종 출력 언어는 `defaults.comment_language` 값으로 제어됩니다.
