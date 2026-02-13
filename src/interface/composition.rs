@@ -19,18 +19,23 @@ pub struct AppComposition {
 
 impl Default for AppComposition {
     fn default() -> Self {
+        Self::new(true)
+    }
+}
+
+impl AppComposition {
+    /// provider 상태판 사용 여부를 받아 실행 조합을 생성한다.
+    pub fn new(provider_panel_enabled: bool) -> Self {
         Self {
             config_repo: JsonConfigRepository,
             target_resolver: UrlTargetResolver,
             vcs_factory: VcsFactoryAdapter,
             provider_factory: ProviderFactoryAdapter,
             renderer: MarkdownRendererAdapter,
-            reporter: ConsoleReporter,
+            reporter: ConsoleReporter::with_provider_panel(provider_panel_enabled),
         }
     }
-}
 
-impl AppComposition {
     /// 설정 점검 유스케이스를 생성한다.
     pub fn inspect_config_usecase(&self) -> InspectConfigUseCase<'_> {
         InspectConfigUseCase {

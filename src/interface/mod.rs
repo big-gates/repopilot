@@ -3,3 +3,5 @@
 
 pub mod cli;
 pub mod composition;
+pub mod repl;
+pub mod repl_input;

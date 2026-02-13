@@ -28,6 +28,7 @@ enum Commands {
 }
 
 pub enum CliAction {
+    Interactive,
     InspectConfig,
     Review(RunOptions),
 }
@@ -40,7 +41,7 @@ impl Cli {
             Some(Commands::Config) => Ok(CliAction::InspectConfig),
             None => {
                 let Some(url) = cli.url else {
-                    return Err("URL is required".to_string());
+                    return Ok(CliAction::Interactive);
                 };
 
                 Ok(CliAction::Review(RunOptions {

@@ -2,6 +2,7 @@
 
 use prpilot::interface::cli::{Cli, CliAction};
 use prpilot::interface::composition::AppComposition;
+use prpilot::interface::repl::run_repl;
 
 #[tokio::main]
 async fn main() {
@@ -20,10 +21,17 @@ async fn main() {
         }
     };
 
-    let composition = AppComposition::default();
-
     match action {
+        CliAction::Interactive => {
+            // REPL 하단 UI와 충돌하지 않도록 provider 상태판은 끈다.
+            let composition = AppComposition::new(false);
+            if let Err(err) = run_repl(&composition).await {
+                eprintln!("error: {err:#}");
+                std::process::exit(1);
+            }
+        }
         CliAction::InspectConfig => {
+            let composition = AppComposition::default();
             match composition.inspect_config_usecase().execute() {
                 Ok(json) => println!("{json}"),
                 Err(err) => {
@@ -33,6 +41,7 @@ async fn main() {
             }
         }
         CliAction::Review(options) => {
+            let composition = AppComposition::default();
             if let Err(err) = composition.review_usecase().execute(options).await {
                 eprintln!("error: {err:#}");
                 std::process::exit(1);

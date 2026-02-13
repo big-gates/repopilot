@@ -84,6 +84,19 @@ cargo run --bin prpilot -- "https://github.com/org/repo/pull/123" --dry-run
 prpilot "<PR_OR_MR_URL>"
 ```
 
+대화형 모드(슬래시 커맨드):
+
+```bash
+prpilot
+```
+
+대화형 명령:
+- `/`로 입력을 시작하면 실시간 명령 추천 표시 (방향키 이동 + Tab 자동완성 + Enter 실행)
+- `/help`
+- `/config`
+- `/review <PR_OR_MR_URL> [--dry-run] [--force]`
+- `/exit` 또는 `/quit`
+
 예시:
 
 ```bash
@@ -102,7 +115,7 @@ prpilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
 3. 에이전트별 개별 코멘트 생성/업데이트
 4. 각 에이전트가 다른 에이전트 의견에 대한 2차 코멘트 생성
 5. claim 코멘트를 최종 요약 코멘트로 업데이트
-6. 모든 에이전트 응답을 한국어로 통일해 출력
+6. `defaults.comment_language` 설정값으로 에이전트 응답 언어를 통일
 
 ## 설정 (JSON)
 

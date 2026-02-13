@@ -3,7 +3,7 @@
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use futures::future::join_all;
+use futures::stream::{FuturesUnordered, StreamExt};
 
 use crate::application::ports::ProviderAgent;
 use crate::application::usecases::review_pr::{ReviewPrUseCase, context::ExecutionContext};
@@ -69,11 +69,16 @@ pub(super) async fn run_primary_reviews(
     providers: &[Box<dyn ProviderAgent>],
     request: &ReviewRequest,
 ) -> PrimaryReviewOutcome {
-    let primary_futures = providers.iter().map(|provider| {
+    let mut primary_futures = FuturesUnordered::new();
+
+    for provider in providers {
         let provider_id = provider.id().to_string();
         let provider_name = provider.name().to_string();
+        use_case
+            .reporter
+            .provider_status(&provider_name, "running", None);
         let provider_request = request.clone();
-        async move {
+        primary_futures.push(async move {
             let started = Instant::now();
             match provider.review(&provider_request).await {
                 Ok(resp) => {
@@ -105,12 +110,11 @@ pub(super) async fn run_primary_reviews(
                     )
                 }
             }
-        }
-    });
+        });
+    }
 
-    let primary_rows = join_all(primary_futures).await;
     let mut primary_results = Vec::new();
-    for (name, run, is_error, sec) in primary_rows {
+    while let Some((name, run, is_error, sec)) = primary_futures.next().await {
         if is_error {
             use_case
                 .reporter
@@ -152,8 +156,13 @@ pub(super) async fn run_cross_agent_reactions(
 
     use_case.reporter.section("Providers (Cross-Agent Reactions)");
 
-    let reaction_futures = providers.iter().map(|provider| {
+    let mut reaction_futures = FuturesUnordered::new();
+
+    for provider in providers {
         let provider_name = provider.name().to_string();
+        use_case
+            .reporter
+            .provider_status(&provider_name, "running", None);
         let prompt = build_cross_agent_prompt(
             &request.target_url,
             &request.head_sha,
@@ -163,7 +172,7 @@ pub(super) async fn run_cross_agent_reactions(
             primary_results,
         );
 
-        async move {
+        reaction_futures.push(async move {
             let started = Instant::now();
             match provider.review_prompt(&prompt).await {
                 Ok(resp) => {
@@ -191,12 +200,11 @@ pub(super) async fn run_cross_agent_reactions(
                     )
                 }
             }
-        }
-    });
+        });
+    }
 
-    let reaction_rows = join_all(reaction_futures).await;
     let mut reactions = Vec::new();
-    for (name, reaction, is_error, sec) in reaction_rows {
+    while let Some((name, reaction, is_error, sec)) = reaction_futures.next().await {
         if is_error {
             use_case
                 .reporter
