@@ -10,6 +10,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use crossterm::execute;
 use crossterm::style::{Color, ResetColor, SetBackgroundColor, SetForegroundColor};
 use crossterm::terminal::{self, ClearType};
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::domain::target::ReviewTarget;
 
@@ -19,12 +20,7 @@ struct Suggestion {
     usage: &'static str,
 }
 
-const SUGGESTIONS: [Suggestion; 4] = [
-    Suggestion {
-        slash: "/help",
-        description: "show available commands",
-        usage: "/help",
-    },
+const SUGGESTIONS: [Suggestion; 3] = [
     Suggestion {
         slash: "/config",
         description: "show effective merged config",
@@ -42,7 +38,8 @@ const SUGGESTIONS: [Suggestion; 4] = [
     },
 ];
 const DEFAULT_INPUT_PREFILL: &str = "";
-const PANEL_HEIGHT: usize = 8;
+// 입력 영역 기본 높이: 상단 구분선 + 입력줄 + 하단 구분선
+const PANEL_BASE_HEIGHT: usize = 3;
 const PANEL_BOTTOM_PADDING: usize = 0;
 
 /// REPL 한 줄 입력을 읽는다.
@@ -111,14 +108,19 @@ fn read_line_interactive(initial: &str) -> Result<Option<String>> {
 
         render_frame(&mut stdout, &input, cursor_chars, &suggestions, selected_idx)?;
 
-        let Event::Key(key) = event::read()? else {
-            continue;
-        };
-        if key.kind != KeyEventKind::Press {
-            continue;
-        }
+        match event::read()? {
+            Event::Paste(text) => {
+                for ch in text.chars() {
+                    insert_char_at(&mut input, cursor_chars, ch);
+                    cursor_chars += 1;
+                }
+            }
+            Event::Key(key) => {
+                if key.kind != KeyEventKind::Press {
+                    continue;
+                }
 
-        match key.code {
+                match key.code {
             KeyCode::Enter => {
                 // `/review` 단독 명령은 즉시 실행하지 않고 인자 입력 상태로 확장한다.
                 if should_expand_review_input(&input, &suggestions, selected_idx) {
@@ -183,6 +185,9 @@ fn read_line_interactive(initial: &str) -> Result<Option<String>> {
                 {
                     insert_char_at(&mut input, cursor_chars, ch);
                     cursor_chars += 1;
+                }
+            }
+            _ => {}
                 }
             }
             _ => {}
@@ -308,72 +313,80 @@ fn render_frame(
     let width = (w as usize).max(20);
     let total_rows = h as usize;
 
-    // 실행 로그 영역(상단)은 유지하고, 하단 패널만 갱신한다.
-    let panel_top = total_rows.saturating_sub(PANEL_HEIGHT + PANEL_BOTTOM_PADDING);
+    // 힌트/추천 유무에 따라 패널 높이를 동적으로 결정한다.
+    let has_hint = review_realtime_hint(input).is_some() || review_usage_hint(input).is_some();
+    let hint_rows = usize::from(has_hint);
+    let suggestion_rows = suggestions.len();
+    let extra_rows = hint_rows + suggestion_rows;
+    let panel_height = PANEL_BASE_HEIGHT + extra_rows;
+    let panel_top = total_rows.saturating_sub(panel_height + PANEL_BOTTOM_PADDING);
+
     let input_header_row = panel_top;
     let input_row = panel_top + 1;
     let panel_divider_row = panel_top + 2;
-    let suggestion_header_row = panel_top + 3;
-    let suggestion_start = suggestion_header_row + 1;
-    let suggestion_capacity = total_rows
-        .saturating_sub(suggestion_start + PANEL_BOTTOM_PADDING)
-        .max(1);
-    let visible_suggestions: Vec<&Suggestion> = suggestions
-        .iter()
-        .take(suggestion_capacity)
-        .copied()
-        .collect();
+    // 하단 구분선 아래부터 힌트·추천을 배치한다.
+    let extra_start = panel_divider_row + 1;
 
-    for row in panel_top..total_rows {
-        draw_panel_line_at(stdout, row as u16, "", width)?;
+    // 이전 프레임 잔상을 지우기 위해 가능한 최대 영역을 클리어한다.
+    let max_panel_height = PANEL_BASE_HEIGHT + 1 + SUGGESTIONS.len();
+    let clear_top = total_rows.saturating_sub(max_panel_height + PANEL_BOTTOM_PADDING);
+    for row in clear_top..total_rows {
+        clear_line_at(stdout, row as u16)?;
     }
 
-    // Fixed input area
-    draw_panel_line_at(
-        stdout,
-        input_header_row as u16,
-        &clip_line_display(" prpilot / Enter run  Up/Down select  Tab autocomplete", width),
-        width,
-    )?;
-    draw_panel_line_at(
-        stdout,
-        input_row as u16,
-        &render_prompt_line(input, width),
-        width,
-    )?;
-    draw_panel_line_at(
-        stdout,
-        panel_divider_row as u16,
-        &clip_line_display("────────────────────────────────────────────────────────", width),
-        width,
-    )?;
+    // 입력 영역(구분선 + 입력줄 + 구분선)에만 배경색을 적용한다.
+    let divider = "─".repeat(width);
+    draw_panel_line_at(stdout, input_header_row as u16, &divider, width)?;
 
-    // review 명령 중에는 실시간 검증 힌트를 상태 색상과 함께 보여준다.
-    if let Some((color, line)) = review_realtime_hint(input) {
+    if input.is_empty() {
+        let placeholder =
+            render_prompt_line("/ Enter run · ↑↓ select · Tab autocomplete", width);
         draw_panel_line_at_with_fg(
             stdout,
-            suggestion_header_row as u16,
+            input_row as u16,
+            &placeholder,
+            width,
+            Color::Grey,
+        )?;
+    } else {
+        draw_panel_line_at(
+            stdout,
+            input_row as u16,
+            &render_prompt_line(input, width),
+            width,
+        )?;
+    }
+
+    draw_panel_line_at(stdout, panel_divider_row as u16, &divider, width)?;
+
+    // 하단 구분선 아래: 배경 없이 힌트와 추천을 표시한다.
+    let mut next_row = extra_start;
+
+    if let Some((color, line)) = review_realtime_hint(input) {
+        draw_line_at_with_fg(
+            stdout,
+            next_row as u16,
             &clip_line_display(&line, width),
             width,
             color,
         )?;
+        next_row += 1;
     } else if let Some(hint) = review_usage_hint(input) {
-        draw_panel_line_at_with_fg(
+        draw_line_at_with_fg(
             stdout,
-            suggestion_header_row as u16,
+            next_row as u16,
             &clip_line_display(&format!("hint: {hint}"), width),
             width,
             Color::Yellow,
         )?;
+        next_row += 1;
     }
 
-    // 추천 목록은 있을 때만 출력한다.
-    for (idx, item) in visible_suggestions.iter().enumerate() {
+    for (idx, item) in suggestions.iter().enumerate() {
         let marker = if idx == selected_idx { ">" } else { " " };
-        let row = suggestion_start + idx;
-        draw_panel_line_at(
+        draw_line_at_with_fg(
             stdout,
-            row as u16,
+            next_row as u16,
             &clip_line_display(
                 &format!(
                     "{marker} {:<10} - {} | usage: {}",
@@ -382,7 +395,9 @@ fn render_frame(
                 width,
             ),
             width,
+            Color::White,
         )?;
+        next_row += 1;
     }
 
     let prompt_cursor_col = prompt_cursor_col(input, cursor_chars, width) as u16;
@@ -392,7 +407,7 @@ fn render_frame(
 }
 
 fn render_prompt_line(input: &str, width: usize) -> String {
-    let prefix = "❯ ";
+    let prefix = "> ";
     let prefix_width = display_width(prefix);
     let available = width.saturating_sub(prefix_width);
     let shown = tail_with_ellipsis_display(input, available);
@@ -400,7 +415,7 @@ fn render_prompt_line(input: &str, width: usize) -> String {
 }
 
 fn prompt_cursor_col(input: &str, cursor_chars: usize, width: usize) -> usize {
-    let prefix = "❯ ";
+    let prefix = "> ";
     let prefix_width = display_width(prefix);
     let input_width = display_width(input);
     let before_cursor: String = input.chars().take(cursor_chars).collect();
@@ -494,6 +509,17 @@ fn trim_newline(mut s: String) -> String {
     s
 }
 
+// 라인을 기본 배경으로 클리어만 한다.
+fn clear_line_at(stdout: &mut io::Stdout, row: u16) -> Result<()> {
+    execute!(
+        stdout,
+        cursor::MoveTo(0, row),
+        terminal::Clear(ClearType::CurrentLine)
+    )?;
+    Ok(())
+}
+
+// 배경색이 있는 패널 라인 (입력 영역용).
 fn draw_panel_line_at(stdout: &mut io::Stdout, row: u16, text: &str, width: usize) -> Result<()> {
     draw_panel_line_at_with_fg(stdout, row, text, width, Color::White)
 }
@@ -508,8 +534,31 @@ fn draw_panel_line_at_with_fg(
     execute!(
         stdout,
         cursor::MoveTo(0, row),
-        terminal::Clear(ClearType::CurrentLine),
         SetBackgroundColor(Color::DarkGrey),
+        SetForegroundColor(fg),
+        terminal::Clear(ClearType::CurrentLine)
+    )?;
+    write!(
+        stdout,
+        "{}",
+        pad_line_display(&clip_line_display(text, width), width)
+    )?;
+    execute!(stdout, ResetColor)?;
+    Ok(())
+}
+
+// 배경색 없는 일반 라인 (힌트/추천 영역용).
+fn draw_line_at_with_fg(
+    stdout: &mut io::Stdout,
+    row: u16,
+    text: &str,
+    width: usize,
+    fg: Color,
+) -> Result<()> {
+    execute!(
+        stdout,
+        cursor::MoveTo(0, row),
+        terminal::Clear(ClearType::CurrentLine),
         SetForegroundColor(fg)
     )?;
     write!(
@@ -534,17 +583,13 @@ fn clear_panel_for_output(stdout: &mut io::Stdout) -> Result<()> {
     Ok(())
 }
 
+// unicode-width 크레이트를 사용하여 정확한 터미널 표시 폭을 계산한다.
 fn display_width(text: &str) -> usize {
-    text.chars().map(char_display_width).sum()
+    UnicodeWidthStr::width(text)
 }
 
 fn char_display_width(ch: char) -> usize {
-    if ch.is_ascii() {
-        if ch.is_ascii_control() { 0 } else { 1 }
-    } else {
-        // 터미널별 폭 차이를 줄이기 위해 비 ASCII를 2칸으로 취급한다.
-        2
-    }
+    UnicodeWidthChar::width(ch).unwrap_or(0)
 }
 
 struct InputGuard;

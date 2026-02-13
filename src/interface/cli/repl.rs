@@ -5,8 +5,8 @@ use std::io::{self, IsTerminal, Write};
 use anyhow::Result;
 
 use crate::domain::review::RunOptions;
-use crate::interface::composition::AppComposition;
-use crate::interface::repl_input::read_repl_input;
+use crate::interface::cli::composition::AppComposition;
+use crate::interface::cli::repl_input::read_repl_input;
 
 /// 대화형 입력으로 `/command`를 처리한다.
 pub async fn run_repl(composition: &AppComposition) -> Result<()> {
@@ -26,7 +26,6 @@ pub async fn run_repl(composition: &AppComposition) -> Result<()> {
         }
 
         match parse_repl_command(input) {
-            Ok(ReplCommand::Help) => print_help(),
             Ok(ReplCommand::Exit) => break,
             Ok(ReplCommand::ReviewNeedsArgs) => {
                 // 인자가 빠진 `/review`는 별도 프롬프트를 띄우지 않고 입력창에 재프리필한다.
@@ -39,7 +38,7 @@ pub async fn run_repl(composition: &AppComposition) -> Result<()> {
             }
             Err(msg) => {
                 eprintln!("error: {msg}");
-                eprintln!("hint: use /help or start typing / for command suggestions");
+                eprintln!("hint: use start typing / for command suggestions");
             }
         }
     }
@@ -48,7 +47,6 @@ pub async fn run_repl(composition: &AppComposition) -> Result<()> {
 }
 
 enum ReplCommand {
-    Help,
     Exit,
     InspectConfig,
     /// `/review`만 입력된 상태. 다음 입력 라운드에 `/review `를 프리필한다.
@@ -58,10 +56,6 @@ enum ReplCommand {
 
 async fn execute_command(composition: &AppComposition, command: ReplCommand) -> Result<()> {
     match command {
-        ReplCommand::Help => {
-            print_help();
-            Ok(())
-        }
         ReplCommand::Exit => Ok(()),
         ReplCommand::InspectConfig => {
             let json = composition.inspect_config_usecase().execute()?;
@@ -87,7 +81,6 @@ fn parse_repl_command(input: &str) -> Result<ReplCommand, String> {
     }
 
     match parts[0] {
-        "/help" => Ok(ReplCommand::Help),
         "/exit" | "/quit" => Ok(ReplCommand::Exit),
         "/config" => {
             if parts.len() != 1 {
@@ -155,7 +148,6 @@ fn print_welcome() {
     let title = paint("prpilot interactive shell", "1;36", interactive);
     let subtitle = paint("multi-agent review cockpit", "2;37", interactive);
     let cmd_palette = paint("/", "1;33", interactive);
-    let cmd_help = paint("/help", "1;33", interactive);
     let cmd_config = paint("/config", "1;32", interactive);
     let cmd_review = paint("/review <url> [--dry-run] [--force]", "1;35", interactive);
     let cmd_exit = paint("/exit", "1;31", interactive);
@@ -166,22 +158,10 @@ fn print_welcome() {
     println!("+------------------------------------------------------------+");
     println!("| Quick start                                                 |");
     println!("|  0) {:<54} |", cmd_palette);
-    println!("|  1) {:<54} |", cmd_help);
-    println!("|  2) {:<54} |", cmd_config);
-    println!("|  3) {:<54} |", cmd_review);
-    println!("|  4) {:<54} |", cmd_exit);
+    println!("|  1) {:<54} |", cmd_config);
+    println!("|  2) {:<54} |", cmd_review);
+    println!("|  3) {:<54} |", cmd_exit);
     println!("+------------------------------------------------------------+");
-    println!();
-}
-
-fn print_help() {
-    println!();
-    println!("Available commands:");
-    println!("  /                      show command suggestions while typing");
-    println!("  /help");
-    println!("  /config");
-    println!("  /review <url> [--dry-run] [--force]");
-    println!("  /exit (or /quit)");
     println!();
 }
 

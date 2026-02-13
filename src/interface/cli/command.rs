@@ -1,3 +1,5 @@
+//! CLI 명령 파싱 모듈.
+
 use clap::{Parser, Subcommand};
 
 use crate::domain::review::RunOptions;

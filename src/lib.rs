@@ -9,7 +9,7 @@ pub mod infrastructure;
 pub mod interface;
 
 use domain::review::RunOptions;
-use interface::composition::AppComposition;
+use interface::cli::AppComposition;
 
 /// 라이브러리 직접 호출용 실행 함수.
 pub async fn run(options: RunOptions) -> Result<()> {

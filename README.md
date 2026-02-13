@@ -92,7 +92,6 @@ prpilot
 
 대화형 명령:
 - `/`로 입력을 시작하면 실시간 명령 추천 표시 (방향키 이동 + Tab 자동완성 + Enter 실행)
-- `/help`
 - `/config`
 - `/review <PR_OR_MR_URL> [--dry-run] [--force]`
 - `/exit` 또는 `/quit`
