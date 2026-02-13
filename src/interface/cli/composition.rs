@@ -1,12 +1,13 @@
 //! 애플리케이션 조립(composition root) 모듈.
 
+use crate::application::ports::UserConfirmer;
+use crate::application::usecases::check_update::CheckUpdateUseCase;
 use crate::application::usecases::edit_config::EditConfigUseCase;
 use crate::application::usecases::inspect_config::InspectConfigUseCase;
 use crate::application::usecases::review_pr::ReviewPrUseCase;
-use crate::application::ports::UserConfirmer;
 use crate::infrastructure::adapters::{
-    ConsoleReporter, JsonConfigRepository, MarkdownRendererAdapter, ProviderFactoryAdapter,
-    StdinConfirmer, UrlTargetResolver, VcsFactoryAdapter,
+    ConsoleReporter, HttpUpdateChecker, JsonConfigRepository, MarkdownRendererAdapter,
+    ProviderFactoryAdapter, StdinConfirmer, UrlTargetResolver, VcsFactoryAdapter,
 };
 
 /// 실행 시점 의존성을 한 곳에서 조립하는 컨테이너.
@@ -17,6 +18,7 @@ pub struct AppComposition {
     provider_factory: ProviderFactoryAdapter,
     renderer: MarkdownRendererAdapter,
     reporter: ConsoleReporter,
+    update_checker: HttpUpdateChecker,
     confirmer: Box<dyn UserConfirmer>,
 }
 
@@ -44,7 +46,16 @@ impl AppComposition {
             provider_factory: ProviderFactoryAdapter,
             renderer: MarkdownRendererAdapter,
             reporter: ConsoleReporter::with_provider_panel(provider_panel_enabled),
+            update_checker: HttpUpdateChecker,
             confirmer,
+        }
+    }
+
+    /// 최신 버전 알림 유스케이스를 생성한다.
+    pub fn check_update_usecase(&self) -> CheckUpdateUseCase<'_> {
+        CheckUpdateUseCase {
+            config_repo: &self.config_repo,
+            update_checker: &self.update_checker,
         }
     }
 

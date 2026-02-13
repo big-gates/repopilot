@@ -19,6 +19,18 @@ async fn main() {
         }
     };
 
+    // 시작 시 최신 버전 알림을 시도한다(실패 시 무시).
+    let update_composition = AppComposition::default();
+    if let Ok(Some(notice)) = update_composition.check_update_usecase().execute().await {
+        eprintln!(
+            "update available: {} -> {}",
+            notice.current_version, notice.latest_version
+        );
+        if let Some(url) = notice.download_url {
+            eprintln!("update url: {url}");
+        }
+    }
+
     match action {
         CliAction::Interactive => {
             // REPL 하단 UI와 충돌하지 않도록 provider 상태판은 끈다.

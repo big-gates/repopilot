@@ -24,6 +24,9 @@ pub struct EffectiveDefaults {
     pub system_prompt: String,
     pub review_guide_path: Option<String>,
     pub comment_language: String,
+    pub update_check_url: Option<String>,
+    pub update_download_url: Option<String>,
+    pub update_timeout_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -75,6 +78,9 @@ impl ConfigInspection {
                 system_prompt: loaded.config.system_prompt(),
                 review_guide_path: loaded.config.defaults.review_guide_path.clone(),
                 comment_language: loaded.config.comment_language().code().to_string(),
+                update_check_url: loaded.config.defaults.update_check_url.clone(),
+                update_download_url: loaded.config.defaults.update_download_url.clone(),
+                update_timeout_ms: loaded.config.defaults.update_timeout_ms.unwrap_or(1200),
             },
             hosts,
             providers: ProvidersInspection {

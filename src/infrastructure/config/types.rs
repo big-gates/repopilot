@@ -36,6 +36,12 @@ pub struct DefaultsConfig {
     pub review_guide_path: Option<String>,
     /// 리뷰 코멘트 출력 언어(ko/en)
     pub comment_language: Option<String>,
+    /// 최신 버전 확인용 엔드포인트 URL (plain text 또는 JSON)
+    pub update_check_url: Option<String>,
+    /// 업데이트 안내 시 표시할 다운로드 URL 힌트
+    pub update_download_url: Option<String>,
+    /// 업데이트 확인 타임아웃(ms)
+    pub update_timeout_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
@@ -146,6 +152,15 @@ impl DefaultsConfig {
         }
         if other.comment_language.is_some() {
             self.comment_language = other.comment_language;
+        }
+        if other.update_check_url.is_some() {
+            self.update_check_url = other.update_check_url;
+        }
+        if other.update_download_url.is_some() {
+            self.update_download_url = other.update_download_url;
+        }
+        if other.update_timeout_ms.is_some() {
+            self.update_timeout_ms = other.update_timeout_ms;
         }
     }
 }

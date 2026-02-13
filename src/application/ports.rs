@@ -77,6 +77,24 @@ pub trait UserConfirmer: Send + Sync {
     fn confirm(&self, message: &str) -> Result<bool>;
 }
 
+/// 업데이트 확인 결과 DTO.
+#[derive(Debug, Clone)]
+pub struct LatestVersionInfo {
+    pub version: String,
+    pub download_url: Option<String>,
+}
+
+/// 원격 최신 버전 정보를 조회하는 포트.
+#[async_trait]
+pub trait UpdateChecker: Send + Sync {
+    async fn fetch_latest(
+        &self,
+        url: &str,
+        token: Option<&str>,
+        timeout_ms: u64,
+    ) -> Result<Option<LatestVersionInfo>>;
+}
+
 /// 콘솔/로그 출력 추상화 포트.
 pub trait Reporter: Send + Sync {
     fn section(&self, name: &str);

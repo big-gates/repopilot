@@ -196,7 +196,10 @@ prpilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
     "max_diff_bytes": 120000,
     "system_prompt": "You are a strict senior code reviewer. Output Markdown with sections: Critical, Major, Minor, Suggestions.",
     "review_guide_path": "./review-guide.md",
-    "comment_language": "ko"
+    "comment_language": "ko",
+    "update_check_url": "https://gitlab.your-company.com/api/v4/projects/<PROEJCT_ID>/releases/permalink/latest",
+    "update_download_url": "https://gitlab.your-company.com/your-group/your-project/-/releases",
+    "update_timeout_ms": 1200
   },
   "hosts": {
     "github.com": {
@@ -234,6 +237,9 @@ prpilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
 - `use_stdin` (선택): 설정하지 않으면 기본값 `true`
 - `defaults.review_guide_path`: 리뷰 지침 Markdown 파일 경로. 내용이 system prompt에 추가됨
 - `defaults.comment_language`: 리뷰 결과 언어 (`ko` 또는 `en`, 기본값 `ko`)
+- `defaults.update_check_url`: 최신 버전 확인 endpoint (plain text 버전 문자열 또는 JSON)
+- `defaults.update_download_url`: 업데이트 안내에 출력할 다운로드 URL (선택)
+- `defaults.update_timeout_ms`: 업데이트 체크 타임아웃(ms, 기본 `1200`)
 
 추가 규칙:
 - `use_stdin=false`일 때 `args` 안에 `{prompt}`가 있으면 치환해서 전달
@@ -282,3 +288,4 @@ PRPILOT_CONFIG=/tmp/config.json prpilot config
 - provider 커맨드가 PATH에서 발견되지 않으면 해당 provider는 자동 제외됩니다.
 - 일부 CLI가 `stdin is not a terminal` 오류를 내면 `prpilot`은 자동으로 stdin 없는 방식으로 1회 재시도합니다.
 - 1차 리뷰/상호 코멘트 프롬프트는 영어로 구성되며, 최종 출력 언어는 `defaults.comment_language` 값으로 제어됩니다.
+- `defaults.update_check_url`이 설정되어 있으면 실행 시작 시 최신 버전이 있는지 확인하고, 새 버전이 있으면 업데이트 안내를 출력합니다.
