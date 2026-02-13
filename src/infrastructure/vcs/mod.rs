@@ -15,8 +15,8 @@ use crate::infrastructure::config::HostConfig;
 pub trait VcsProvider: Send + Sync {
     /// PR/MR의 현재 HEAD SHA 조회
     async fn fetch_head_sha(&self) -> Result<String>;
-    /// API 기반 diff 조회
-    async fn fetch_diff(&self, max_bytes: usize) -> Result<String>;
+    /// API 기반 diff 전문 조회
+    async fn fetch_diff(&self) -> Result<String>;
     /// 기존 코멘트/노트 조회
     async fn list_comments(&self) -> Result<Vec<ReviewComment>>;
     /// 코멘트/노트 생성
@@ -61,20 +61,4 @@ pub fn build_vcs_client(
             api_base,
         )),
     }
-}
-
-pub fn truncate_diff(mut diff: String, max_bytes: usize) -> String {
-    // UTF-8 경계를 지키면서 diff를 안전하게 자른다.
-    if diff.len() <= max_bytes {
-        return diff;
-    }
-
-    let mut cutoff = max_bytes;
-    while cutoff > 0 && !diff.is_char_boundary(cutoff) {
-        cutoff -= 1;
-    }
-
-    diff.truncate(cutoff);
-    diff.push_str("\n... (diff truncated)\n");
-    diff
 }

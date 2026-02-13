@@ -3,9 +3,10 @@
 use crate::application::usecases::edit_config::EditConfigUseCase;
 use crate::application::usecases::inspect_config::InspectConfigUseCase;
 use crate::application::usecases::review_pr::ReviewPrUseCase;
+use crate::application::ports::UserConfirmer;
 use crate::infrastructure::adapters::{
     ConsoleReporter, JsonConfigRepository, MarkdownRendererAdapter, ProviderFactoryAdapter,
-    UrlTargetResolver, VcsFactoryAdapter,
+    StdinConfirmer, UrlTargetResolver, VcsFactoryAdapter,
 };
 
 /// 실행 시점 의존성을 한 곳에서 조립하는 컨테이너.
@@ -16,6 +17,7 @@ pub struct AppComposition {
     provider_factory: ProviderFactoryAdapter,
     renderer: MarkdownRendererAdapter,
     reporter: ConsoleReporter,
+    confirmer: Box<dyn UserConfirmer>,
 }
 
 impl Default for AppComposition {
@@ -27,6 +29,14 @@ impl Default for AppComposition {
 impl AppComposition {
     /// provider 상태판 사용 여부를 받아 실행 조합을 생성한다.
     pub fn new(provider_panel_enabled: bool) -> Self {
+        Self::with_confirmer(provider_panel_enabled, Box::new(StdinConfirmer))
+    }
+
+    /// 확인 어댑터를 외부에서 주입한다.
+    pub fn with_confirmer(
+        provider_panel_enabled: bool,
+        confirmer: Box<dyn UserConfirmer>,
+    ) -> Self {
         Self {
             config_repo: JsonConfigRepository,
             target_resolver: UrlTargetResolver,
@@ -34,6 +44,7 @@ impl AppComposition {
             provider_factory: ProviderFactoryAdapter,
             renderer: MarkdownRendererAdapter,
             reporter: ConsoleReporter::with_provider_panel(provider_panel_enabled),
+            confirmer,
         }
     }
 
@@ -60,6 +71,7 @@ impl AppComposition {
             provider_factory: &self.provider_factory,
             renderer: &self.renderer,
             reporter: &self.reporter,
+            confirmer: self.confirmer.as_ref(),
         }
     }
 }

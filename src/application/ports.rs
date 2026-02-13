@@ -28,7 +28,7 @@ pub trait TargetResolver: Send + Sync {
 #[async_trait]
 pub trait VcsGateway: Send + Sync {
     async fn fetch_head_sha(&self) -> Result<String>;
-    async fn fetch_diff(&self, max_bytes: usize) -> Result<String>;
+    async fn fetch_diff(&self) -> Result<String>;
     async fn list_comments(&self) -> Result<Vec<ReviewComment>>;
     async fn create_comment(&self, body: &str) -> Result<ReviewComment>;
     async fn update_comment(&self, comment_id: &str, body: &str) -> Result<ReviewComment>;
@@ -69,6 +69,12 @@ pub trait MarkdownRenderer: Send + Sync {
         reactions: &[AgentReaction],
         agent_comment_refs: &[(String, String)],
     ) -> String;
+}
+
+/// 사용자 확인 입력을 받는 포트.
+pub trait UserConfirmer: Send + Sync {
+    /// 경고 메시지를 표시하고 yes/y 입력을 받는다.
+    fn confirm(&self, message: &str) -> Result<bool>;
 }
 
 /// 콘솔/로그 출력 추상화 포트.

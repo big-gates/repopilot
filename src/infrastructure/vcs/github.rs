@@ -6,7 +6,7 @@ use reqwest::{Client, Method, RequestBuilder};
 use serde::Deserialize;
 use serde_json::json;
 
-use super::{ReviewComment, VcsProvider, truncate_diff};
+use super::{ReviewComment, VcsProvider};
 
 pub struct GitHubClient {
     client: Client,
@@ -132,7 +132,7 @@ impl VcsProvider for GitHubClient {
         Ok(pr.head.sha)
     }
 
-    async fn fetch_diff(&self, max_bytes: usize) -> Result<String> {
+    async fn fetch_diff(&self) -> Result<String> {
         // PR endpoint에 diff Accept 헤더를 적용해 unified diff를 가져온다.
         let mut req = self
             .client
@@ -158,7 +158,7 @@ impl VcsProvider for GitHubClient {
             anyhow::bail!("github: failed to fetch PR diff ({status}): {body}");
         }
 
-        Ok(truncate_diff(body, max_bytes))
+        Ok(body)
     }
 
     async fn list_comments(&self) -> Result<Vec<ReviewComment>> {

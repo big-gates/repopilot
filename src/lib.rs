@@ -9,11 +9,12 @@ pub mod infrastructure;
 pub mod interface;
 
 use domain::review::RunOptions;
+use infrastructure::adapters::AutoConfirmer;
 use interface::cli::AppComposition;
 
 /// 라이브러리 직접 호출용 실행 함수.
 pub async fn run(options: RunOptions) -> Result<()> {
-    let composition = AppComposition::default();
+    let composition = AppComposition::with_confirmer(true, Box::new(AutoConfirmer));
     composition.review_usecase().execute(options).await
 }
 

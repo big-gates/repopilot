@@ -7,7 +7,7 @@ use reqwest::{Client, Method, RequestBuilder};
 use serde::Deserialize;
 use serde_json::json;
 
-use super::{ReviewComment, VcsProvider, truncate_diff};
+use super::{ReviewComment, VcsProvider};
 
 pub struct GitLabClient {
     client: Client,
@@ -142,7 +142,7 @@ impl VcsProvider for GitLabClient {
         anyhow::bail!("gitlab: MR response missing sha and diff_refs.head_sha")
     }
 
-    async fn fetch_diff(&self, max_bytes: usize) -> Result<String> {
+    async fn fetch_diff(&self) -> Result<String> {
         // changes API의 개별 diff를 이어붙여 unified diff처럼 사용한다.
         let resp = self
             .request(Method::GET, self.merge_request_changes_endpoint())
@@ -170,7 +170,7 @@ impl VcsProvider for GitLabClient {
             .collect::<Vec<_>>()
             .join("\n");
 
-        Ok(truncate_diff(joined, max_bytes))
+        Ok(joined)
     }
 
     async fn list_comments(&self) -> Result<Vec<ReviewComment>> {

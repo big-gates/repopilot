@@ -22,8 +22,20 @@ pub(super) async fn build_review_request(
     ctx: &ExecutionContext,
 ) -> Result<ReviewRequest> {
     use_case.reporter.status("VCS", "fetching diff");
-    let diff = ctx.vcs.fetch_diff(ctx.config.max_diff_bytes()).await?;
+    let diff = ctx.vcs.fetch_diff().await?;
     use_case.reporter.kv("Diff Bytes", &diff.len().to_string());
+
+    let max = ctx.config.max_diff_bytes();
+    if diff.len() > max {
+        let msg = format!(
+            "warning: diff size ({} bytes) exceeds max_diff_bytes ({} bytes).",
+            diff.len(),
+            max
+        );
+        if !use_case.confirmer.confirm(&msg)? {
+            bail!("cancelled by user");
+        }
+    }
 
     use_case.reporter.section("Prompt");
     let system_prompt = ctx

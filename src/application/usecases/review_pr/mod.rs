@@ -8,7 +8,8 @@ mod publish;
 use anyhow::Result;
 
 use crate::application::ports::{
-    ConfigRepository, MarkdownRenderer, ProviderFactory, Reporter, TargetResolver, VcsFactory,
+    ConfigRepository, MarkdownRenderer, ProviderFactory, Reporter, TargetResolver, UserConfirmer,
+    VcsFactory,
 };
 use crate::domain::review::RunOptions;
 
@@ -27,6 +28,7 @@ pub struct ReviewPrUseCase<'a> {
     pub provider_factory: &'a dyn ProviderFactory,
     pub renderer: &'a dyn MarkdownRenderer,
     pub reporter: &'a dyn Reporter,
+    pub confirmer: &'a dyn UserConfirmer,
 }
 
 impl<'a> ReviewPrUseCase<'a> {

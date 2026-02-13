@@ -5,6 +5,7 @@ mod markdown_renderer;
 mod provider_factory;
 mod reporter;
 mod target_resolver;
+mod user_confirmer;
 mod vcs_factory;
 
 pub use config_repository::JsonConfigRepository;
@@ -12,4 +13,5 @@ pub use markdown_renderer::MarkdownRendererAdapter;
 pub use provider_factory::ProviderFactoryAdapter;
 pub use reporter::ConsoleReporter;
 pub use target_resolver::UrlTargetResolver;
+pub use user_confirmer::{AutoConfirmer, StdinConfirmer};
 pub use vcs_factory::VcsFactoryAdapter;

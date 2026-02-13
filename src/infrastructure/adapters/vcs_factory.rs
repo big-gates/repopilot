@@ -35,8 +35,8 @@ impl VcsGateway for VcsGatewayAdapter {
         self.inner.fetch_head_sha().await
     }
 
-    async fn fetch_diff(&self, max_bytes: usize) -> Result<String> {
-        self.inner.fetch_diff(max_bytes).await
+    async fn fetch_diff(&self) -> Result<String> {
+        self.inner.fetch_diff().await
     }
 
     async fn list_comments(&self) -> Result<Vec<ReviewComment>> {
