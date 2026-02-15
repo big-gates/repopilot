@@ -1,5 +1,6 @@
 //! Provider CLI 실행기.
 
+use std::io::IsTerminal;
 use std::process::Stdio;
 
 use anyhow::{Context, Result, bail};
@@ -16,27 +17,85 @@ pub async fn run_provider_command(
     provider_name: &str,
     spec: &ProviderCommandSpec,
     prompt: &str,
+    auth_command: Option<&[String]>,
+    auto_auth: bool,
 ) -> Result<ProviderResponse> {
-    match run_provider_command_once(provider_name, spec, prompt).await {
-        Ok(text) => Ok(text),
-        Err(err) => {
-            // Some CLIs reject piped stdin and require argument-based input.
-            let msg = format!("{err:#}");
-            if spec.use_stdin && msg.contains("stdin is not a terminal") {
-                let mut fallback = spec.clone();
-                fallback.use_stdin = false;
-                return run_provider_command_once(provider_name, &fallback, prompt)
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "{}: stdin mode failed; retried without stdin but still failed",
-                            provider_name
-                        )
-                    });
+    let mut current = spec.clone();
+    let mut tried_stdin_fallback = false;
+    let mut tried_auth = false;
+
+    loop {
+        match run_provider_command_once(provider_name, &current, prompt).await {
+            Ok(text) => return Ok(text),
+            Err(err) => {
+                let msg = format!("{err:#}");
+                let lower = msg.to_lowercase();
+
+                // Some CLIs reject piped stdin and require argument-based input.
+                if current.use_stdin
+                    && !tried_stdin_fallback
+                    && lower.contains("stdin is not a terminal")
+                {
+                    tried_stdin_fallback = true;
+                    current.use_stdin = false;
+                    continue;
+                }
+
+                // OAuth login retry (interactive only).
+                let interactive = std::io::stdin().is_terminal() && std::io::stdout().is_terminal();
+                if auto_auth
+                    && interactive
+                    && !tried_auth
+                    && seems_auth_failure(&lower)
+                    && let Some(cmd) = auth_command
+                {
+                    tried_auth = true;
+                    eprintln!("{provider_name}: authentication required; running OAuth login...");
+                    run_auth_command(provider_name, cmd).await?;
+                    continue;
+                }
+
+                return Err(err);
             }
-            Err(err)
         }
     }
+}
+
+fn seems_auth_failure(lower_msg: &str) -> bool {
+    // Keep this heuristic conservative to avoid running interactive login on unrelated failures.
+    lower_msg.contains("unauthorized")
+        || lower_msg.contains("not authenticated")
+        || lower_msg.contains("authentication required")
+        || lower_msg.contains("not logged in")
+        || lower_msg.contains("please login")
+        || lower_msg.contains("please log in")
+        || (lower_msg.contains("run") && lower_msg.contains("login"))
+        || lower_msg.contains("sign in")
+        || lower_msg.contains("login required")
+        || lower_msg.contains("oauth")
+}
+
+async fn run_auth_command(provider_name: &str, cmd: &[String]) -> Result<()> {
+    let program = cmd
+        .first()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .context("auth_command is empty")?;
+    let args: Vec<&str> = cmd.iter().skip(1).map(|s| s.as_str()).collect();
+
+    let status = Command::new(program)
+        .args(&args)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .await
+        .with_context(|| format!("failed to run auth command for {}", provider_name))?;
+
+    if !status.success() {
+        bail!("auth command exited with {}", status);
+    }
+    Ok(())
 }
 
 async fn run_provider_command_once(

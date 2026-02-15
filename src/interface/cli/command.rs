@@ -2,6 +2,7 @@
 
 use clap::{Parser, Subcommand};
 
+use crate::application::ports::{ProviderAuthKind, VcsAuthKind};
 use crate::domain::review::RunOptions;
 
 #[derive(Debug, Parser)]
@@ -27,12 +28,41 @@ pub struct Cli {
 enum Commands {
     /// Show effective merged config and provider command availability
     Config,
+    /// OAuth login via VCS/provider CLI
+    Auth {
+        #[command(subcommand)]
+        provider: AuthProvider,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum AuthProvider {
+    /// GitHub OAuth login (`gh auth login`)
+    Github {
+        /// GitHub hostname (default: github.com)
+        #[arg(long, default_value = "github.com")]
+        host: String,
+    },
+    /// GitLab OAuth login (`glab auth login`)
+    Gitlab {
+        /// GitLab hostname (default: gitlab.com)
+        #[arg(long, default_value = "gitlab.com")]
+        host: String,
+    },
+    /// OpenAI/Codex OAuth login (provider CLI)
+    Codex,
+    /// Anthropic/Claude OAuth login (provider CLI)
+    Claude,
+    /// Google Gemini OAuth login (provider CLI)
+    Gemini,
 }
 
 pub enum CliAction {
     Interactive,
     InspectConfig,
     Review(RunOptions),
+    Auth { kind: VcsAuthKind, host: String },
+    AuthProvider { kind: ProviderAuthKind },
 }
 
 impl Cli {
@@ -41,6 +71,25 @@ impl Cli {
 
         match cli.command {
             Some(Commands::Config) => Ok(CliAction::InspectConfig),
+            Some(Commands::Auth { provider }) => match provider {
+                AuthProvider::Github { host } => Ok(CliAction::Auth {
+                    kind: VcsAuthKind::GitHub,
+                    host,
+                }),
+                AuthProvider::Gitlab { host } => Ok(CliAction::Auth {
+                    kind: VcsAuthKind::GitLab,
+                    host,
+                }),
+                AuthProvider::Codex => Ok(CliAction::AuthProvider {
+                    kind: ProviderAuthKind::Codex,
+                }),
+                AuthProvider::Claude => Ok(CliAction::AuthProvider {
+                    kind: ProviderAuthKind::Claude,
+                }),
+                AuthProvider::Gemini => Ok(CliAction::AuthProvider {
+                    kind: ProviderAuthKind::Gemini,
+                }),
+            },
             None => {
                 let Some(url) = cli.url else {
                     return Ok(CliAction::Interactive);

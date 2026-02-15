@@ -7,16 +7,22 @@ use serde_json::{Value, json};
 use url::Url;
 
 use crate::domain::review::{ProviderResponse, ReviewRequest, TokenUsage};
-use crate::infrastructure::config::{Config, ProviderCommandSpec};
+use crate::infrastructure::config::{Config, ProviderCommandSpec, resolve_provider_api_key};
 
 use super::{
     ReviewProvider, build_primary_prompt, command_available, run_provider_command,
     api_runner::{build_api_client, collect_text, send_json},
 };
 
+struct CliBackend {
+    spec: ProviderCommandSpec,
+    auth_command: Option<Vec<String>>,
+    auto_auth: bool,
+}
+
 enum GeminiBackend {
     Api(GeminiApiBackend),
-    Cli(ProviderCommandSpec),
+    Cli(CliBackend),
 }
 
 struct GeminiApiBackend {
@@ -38,7 +44,7 @@ impl GeminiProvider {
             return None;
         }
 
-        if let Some(credential) = provider.resolve_api_key() {
+        if let Some(credential) = resolve_provider_api_key(provider).credential {
             let api = GeminiApiBackend {
                 client: build_api_client(),
                 base_url: provider
@@ -60,8 +66,19 @@ impl GeminiProvider {
         if !command_available(&spec.command) {
             return None;
         }
+
+        let auth_command = provider
+            .auth_command
+            .clone()
+            .filter(|v| !v.is_empty())
+            .or_else(|| Some(vec![spec.command.clone(), "login".to_string()]));
+
         Some(Self {
-            backend: GeminiBackend::Cli(spec),
+            backend: GeminiBackend::Cli(CliBackend {
+                spec,
+                auth_command,
+                auto_auth: provider.auto_auth(),
+            }),
         })
     }
 
@@ -150,14 +167,32 @@ impl ReviewProvider for GeminiProvider {
         let prompt = build_primary_prompt(request);
         match &self.backend {
             GeminiBackend::Api(_) => self.review_via_api(&prompt).await,
-            GeminiBackend::Cli(spec) => run_provider_command(self.name(), spec, &prompt).await,
+            GeminiBackend::Cli(cli) => {
+                run_provider_command(
+                    self.name(),
+                    &cli.spec,
+                    &prompt,
+                    cli.auth_command.as_deref(),
+                    cli.auto_auth,
+                )
+                .await
+            }
         }
     }
 
     async fn review_prompt(&self, prompt: &str) -> Result<ProviderResponse> {
         match &self.backend {
             GeminiBackend::Api(_) => self.review_via_api(prompt).await,
-            GeminiBackend::Cli(spec) => run_provider_command(self.name(), spec, prompt).await,
+            GeminiBackend::Cli(cli) => {
+                run_provider_command(
+                    self.name(),
+                    &cli.spec,
+                    prompt,
+                    cli.auth_command.as_deref(),
+                    cli.auto_auth,
+                )
+                .await
+            }
         }
     }
 }

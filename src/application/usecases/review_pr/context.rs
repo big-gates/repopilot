@@ -6,9 +6,9 @@ use anyhow::{Context, Result, bail};
 
 use crate::application::ports::VcsGateway;
 use crate::application::usecases::review_pr::ReviewPrUseCase;
+use crate::application::config::{Config, ProviderConfig};
 use crate::domain::review::{ReviewComment, RunOptions};
 use crate::domain::target::ReviewTarget;
-use crate::infrastructure::config::{Config, command_exists};
 
 /// 리뷰 유스케이스 전 구간에서 공유되는 실행 상태.
 pub(super) struct ExecutionContext {
@@ -36,14 +36,27 @@ pub(super) async fn load_execution_context(
         .context("failed to parse target URL")?;
 
     let host_cfg = config.host_config(target.host());
-    let token = host_cfg.and_then(|h| h.resolve_token());
+    let token_resolution = use_case
+        .host_token_resolver
+        .resolve(target.host(), host_cfg)
+        .context("failed to resolve VCS host token")?;
+    let token = token_resolution.token.clone();
     let token_resolved = token.is_some();
 
     render_status_dashboard(use_case, &config, &target, token_resolved, options.dry_run);
+    if let Some(source) = token_resolution.source.as_deref() {
+        use_case.reporter.kv("Host Token Source", source);
+    }
 
     if !options.dry_run && token.is_none() {
+        let host = target.host();
+        let auth_hint = match &target {
+            ReviewTarget::GitHub { .. } => format!("repopilot auth github --host {host}"),
+            ReviewTarget::GitLab { .. } => format!("repopilot auth gitlab --host {host}"),
+        };
         bail!(
-            "missing VCS token for host '{}'. Configure hosts.{}.token or hosts.{}.token_env in config, or use --dry-run",
+            "missing VCS token for host '{}'. Configure hosts.{}.token / hosts.{}.token_env / hosts.{}.token_command (OAuth), run `{auth_hint}`, or use --dry-run",
+            target.host(),
             target.host(),
             target.host(),
             target.host(),
@@ -146,7 +159,7 @@ fn provider_lines(config: &Config) -> Vec<String> {
 
 fn provider_line(
     id: &str,
-    cfg: Option<&crate::infrastructure::config::ProviderConfig>,
+    cfg: Option<&ProviderConfig>,
     default_command: &str,
 ) -> String {
     let Some(cfg) = cfg else {
@@ -154,10 +167,10 @@ fn provider_line(
     };
 
     let enabled = cfg.is_enabled();
-    let has_api_credential = cfg.resolve_api_key().is_some();
+    let has_api_hint = cfg.api_key.is_some() || cfg.api_key_env.is_some();
     let state = if enabled { "enabled" } else { "disabled" };
 
-    if has_api_credential {
+    if has_api_hint {
         let model = cfg
             .model
             .as_deref()
@@ -172,13 +185,11 @@ fn provider_line(
         .filter(|v| !v.trim().is_empty())
         .unwrap_or(default_command);
     let args = cfg.args.clone().unwrap_or_default().join(" ");
-    let available = command_exists(command);
-    let available_text = if available { "ok" } else { "missing" };
     if args.is_empty() {
-        format!("  - {id:<10} {state:<8} mode=cli cmd={command} ({available_text})")
+        format!("  - {id:<10} {state:<8} mode=cli cmd={command}")
     } else {
         format!(
-            "  - {id:<10} {state:<8} mode=cli cmd={} {} ({available_text})",
+            "  - {id:<10} {state:<8} mode=cli cmd={} {}",
             command, args
         )
     }

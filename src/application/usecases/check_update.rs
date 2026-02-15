@@ -3,8 +3,8 @@
 use anyhow::Result;
 use url::Url;
 
-use crate::application::ports::{ConfigRepository, UpdateChecker};
-use crate::infrastructure::config::Config;
+use crate::application::ports::{ConfigRepository, HostTokenResolver, UpdateChecker};
+use crate::application::config::Config;
 
 /// 업데이트 안내 메시지 생성용 데이터.
 #[derive(Debug, Clone)]
@@ -17,6 +17,7 @@ pub struct UpdateNotice {
 /// 설정 기반 원격 최신 버전을 조회하고 업데이트 필요 여부를 판단한다.
 pub struct CheckUpdateUseCase<'a> {
     pub config_repo: &'a dyn ConfigRepository,
+    pub host_token_resolver: &'a dyn HostTokenResolver,
     pub update_checker: &'a dyn UpdateChecker,
 }
 
@@ -34,7 +35,7 @@ impl<'a> CheckUpdateUseCase<'a> {
         };
 
         let timeout_ms = config.defaults.update_timeout_ms.unwrap_or(1200);
-        let host_token = resolve_host_token(&config, check_url);
+        let host_token = resolve_host_token(&config, check_url, self.host_token_resolver);
         let Some(latest) = self
             .update_checker
             .fetch_latest(check_url, host_token.as_deref(), timeout_ms)
@@ -60,10 +61,15 @@ impl<'a> CheckUpdateUseCase<'a> {
     }
 }
 
-fn resolve_host_token(config: &Config, raw_url: &str) -> Option<String> {
+fn resolve_host_token(
+    config: &Config,
+    raw_url: &str,
+    resolver: &dyn HostTokenResolver,
+) -> Option<String> {
     let parsed = Url::parse(raw_url).ok()?;
     let host = parsed.host_str()?;
-    config.host_config(host).and_then(|h| h.resolve_token())
+    let host_cfg = config.host_config(host);
+    resolver.resolve(host, host_cfg).ok()?.token
 }
 
 fn is_newer_version(current: &str, latest: &str) -> bool {

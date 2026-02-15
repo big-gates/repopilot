@@ -1,10 +1,9 @@
-//! 설정 스키마와 병합/해석 규칙.
+//! 애플리케이션이 사용하는 설정 스키마(순수 데이터).
+//!
+//! 주의: 파일/환경변수/프로세스 접근은 `infrastructure`에서만 수행한다.
 
 use std::collections::HashMap;
-use std::env;
-use std::fs;
 
-use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::review::CommentLanguage;
@@ -30,7 +29,7 @@ pub struct Config {
 pub struct DefaultsConfig {
     /// diff 최대 바이트
     pub max_diff_bytes: Option<usize>,
-    /// 리뷰 기본 시스템 프롬프트
+    /// 리뷰 기본 시스템 프롬프트(이미 resolve된 값일 수 있음)
     pub system_prompt: Option<String>,
     /// 리뷰 지침 markdown 파일 경로
     pub review_guide_path: Option<String>,
@@ -46,8 +45,13 @@ pub struct DefaultsConfig {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct HostConfig {
+    /// 고정 토큰(민감정보: 권장하지 않음)
     pub token: Option<String>,
+    /// 토큰을 읽을 환경변수 이름
     pub token_env: Option<String>,
+    /// 토큰을 stdout으로 출력하는 커맨드(예: ["gh","auth","token"])
+    pub token_command: Option<Vec<String>>,
+    /// API base URL override(선택)
     pub api_base: Option<String>,
 }
 
@@ -68,6 +72,10 @@ pub struct ProviderConfig {
     pub args: Option<Vec<String>>,
     /// 프롬프트를 stdin으로 전달할지 여부(기본 true)
     pub use_stdin: Option<bool>,
+    /// CLI 모드에서 인증이 필요할 때 자동으로 로그인 시도할지 여부(기본 true)
+    pub auto_auth: Option<bool>,
+    /// OAuth/로그인용 커맨드 (예: ["codex","login"], ["claude","login"], ["gemini","login"])
+    pub auth_command: Option<Vec<String>>,
 
     /// API 모드에서 사용할 모델 식별자(선택)
     pub model: Option<String>,
@@ -105,29 +113,12 @@ impl Config {
         CommentLanguage::from_config(self.defaults.comment_language.as_deref())
     }
 
-    /// 기본 시스템 프롬프트 + review guide 파일 내용을 합쳐 반환한다.
-    pub fn resolved_system_prompt(&self) -> Result<String> {
-        let mut prompt = self.system_prompt();
-
-        if let Some(path) = &self.defaults.review_guide_path {
-            let guide_raw = fs::read_to_string(path)
-                .with_context(|| format!("failed to read review guide file at {}", path))?;
-            let guide = guide_raw.trim();
-            if !guide.is_empty() {
-                prompt.push_str("\n\nReview guide (must follow):\n");
-                prompt.push_str(guide);
-            }
-        }
-
-        Ok(prompt)
-    }
-
     pub fn host_config(&self, host: &str) -> Option<&HostConfig> {
         self.hosts.get(host)
     }
 
     /// 후순위(나중 파일) 값으로 덮어쓰는 병합 규칙.
-    pub(crate) fn merge_from(&mut self, other: Config) {
+    pub fn merge_from(&mut self, other: Config) {
         self.defaults.merge_from(other.defaults);
 
         for (host, incoming) in other.hosts {
@@ -143,7 +134,7 @@ impl Config {
 }
 
 impl DefaultsConfig {
-    pub(crate) fn merge_from(&mut self, other: DefaultsConfig) {
+    pub fn merge_from(&mut self, other: DefaultsConfig) {
         if other.max_diff_bytes.is_some() {
             self.max_diff_bytes = other.max_diff_bytes;
         }
@@ -169,49 +160,29 @@ impl DefaultsConfig {
 }
 
 impl HostConfig {
-    /// host 토큰은 `token` 우선, 없으면 `token_env`를 조회한다.
-    pub fn resolve_token(&self) -> Option<String> {
-        if let Some(token) = &self.token {
-            return Some(token.clone());
-        }
-        let env_name = self.token_env.as_ref()?;
-        env::var(env_name).ok().filter(|v| !v.trim().is_empty())
-    }
-
-    pub(crate) fn merge_from(&mut self, other: HostConfig) {
+    pub fn merge_from(&mut self, other: HostConfig) {
         if other.token.is_some() {
             self.token = other.token;
         }
         if other.token_env.is_some() {
             self.token_env = other.token_env;
         }
+        if other.token_command.is_some() {
+            self.token_command = other.token_command;
+        }
         if other.api_base.is_some() {
             self.api_base = other.api_base;
         }
-    }
-
-    pub(crate) fn token_source_label(&self) -> Option<String> {
-        if self.token.is_some() {
-            return Some("inline".to_string());
-        }
-        if let Some(env_name) = &self.token_env {
-            return if env::var(env_name)
-                .ok()
-                .filter(|v| !v.trim().is_empty())
-                .is_some()
-            {
-                Some(format!("env:{env_name}"))
-            } else {
-                Some(format!("env:{env_name} (missing)"))
-            };
-        }
-        None
     }
 }
 
 impl ProviderConfig {
     pub fn is_enabled(&self) -> bool {
         self.enabled.unwrap_or(true)
+    }
+
+    pub fn auto_auth(&self) -> bool {
+        self.auto_auth.unwrap_or(true)
     }
 
     /// provider 실행 사양(명령/인자/stdin)을 정규화한다.
@@ -230,15 +201,7 @@ impl ProviderConfig {
         })
     }
 
-    pub fn resolve_api_key(&self) -> Option<String> {
-        if let Some(key) = &self.api_key {
-            return Some(key.clone());
-        }
-        let env_name = self.api_key_env.as_ref()?;
-        env::var(env_name).ok().filter(|v| !v.trim().is_empty())
-    }
-
-    pub(crate) fn merge_from(&mut self, other: ProviderConfig) {
+    pub fn merge_from(&mut self, other: ProviderConfig) {
         if other.enabled.is_some() {
             self.enabled = other.enabled;
         }
@@ -250,6 +213,12 @@ impl ProviderConfig {
         }
         if other.use_stdin.is_some() {
             self.use_stdin = other.use_stdin;
+        }
+        if other.auto_auth.is_some() {
+            self.auto_auth = other.auto_auth;
+        }
+        if other.auth_command.is_some() {
+            self.auth_command = other.auth_command;
         }
 
         if other.api_key.is_some() {
@@ -265,28 +234,10 @@ impl ProviderConfig {
             self.api_base = other.api_base;
         }
     }
-
-    pub(crate) fn api_key_source_label(&self) -> Option<String> {
-        if self.api_key.is_some() {
-            return Some("inline".to_string());
-        }
-        if let Some(env_name) = &self.api_key_env {
-            return if env::var(env_name)
-                .ok()
-                .filter(|v| !v.trim().is_empty())
-                .is_some()
-            {
-                Some(format!("env:{env_name}"))
-            } else {
-                Some(format!("env:{env_name} (missing)"))
-            };
-        }
-        None
-    }
 }
 
 impl ProvidersConfig {
-    pub(crate) fn merge_from(&mut self, other: ProvidersConfig) {
+    pub fn merge_from(&mut self, other: ProvidersConfig) {
         merge_provider_config(&mut self.openai, other.openai);
         merge_provider_config(&mut self.anthropic, other.anthropic);
         merge_provider_config(&mut self.gemini, other.gemini);

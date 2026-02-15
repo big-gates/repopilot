@@ -8,8 +8,8 @@ mod publish;
 use anyhow::Result;
 
 use crate::application::ports::{
-    ConfigRepository, MarkdownRenderer, ProviderFactory, Reporter, TargetResolver, UserConfirmer,
-    VcsFactory,
+    ConfigRepository, HostTokenResolver, MarkdownRenderer, ProviderFactory, Reporter,
+    SystemPromptResolver, TargetResolver, UserConfirmer, VcsFactory,
 };
 use crate::domain::review::RunOptions;
 
@@ -23,6 +23,8 @@ use publish::{publish_agent_comments, publish_final_summary};
 /// URL 입력부터 VCS/제공자 호출, 코멘트 업서트까지 전체 흐름을 조율한다.
 pub struct ReviewPrUseCase<'a> {
     pub config_repo: &'a dyn ConfigRepository,
+    pub host_token_resolver: &'a dyn HostTokenResolver,
+    pub system_prompt_resolver: &'a dyn SystemPromptResolver,
     pub target_resolver: &'a dyn TargetResolver,
     pub vcs_factory: &'a dyn VcsFactory,
     pub provider_factory: &'a dyn ProviderFactory,

@@ -58,6 +58,15 @@
 
 동작 우선순위: **API key가 있으면 API 모드**, 없으면 CLI 모드.
 
+VCS 코멘트/노트 작성에는 host 토큰이 필요합니다.
+- PAT: `GITHUB_TOKEN` / `GITLAB_TOKEN` 환경변수 또는 `hosts.<host>.token` 설정
+- OAuth(권장): `gh`/`glab` 설치 후 `repopilot auth github` / `repopilot auth gitlab` 실행 (`hosts.<host>.token_command` 사용)
+
+Provider(Codex/Claude/Gemini)도 CLI 모드라면 로그인(OAuth)이 필요할 수 있습니다.
+- `repopilot auth codex`
+- `repopilot auth claude`
+- `repopilot auth gemini`
+
 ## 설치 / 빌드
 
 ```bash
@@ -174,8 +183,8 @@ repopilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
 - `--force`: 현재 HEAD SHA에 대해 이미 claim/review가 있어도 강제로 재실행
 
 최초 실행 시 설정 파일이 없으면 아래 템플릿이 자동 생성됩니다.
-- `./repopilot.config.json`
-- `./review-guide.md`
+- `./.repopilot/config.json`
+- `./.repopilot/review-guide.md`
 
 실행 흐름:
 0. 상태 대시보드 출력
@@ -201,53 +210,64 @@ repopilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
 
 1. `/etc/repopilot/config.json`
 2. `~/.config/repopilot/config.json` (OS 표준 config 디렉터리)
-3. `./.repopilot/config.json`
-4. `./repopilot.config.json`
-5. `REPOPILOT_CONFIG=/path/to/config.json` (최우선)
+3. `./.repopilot/config.json` (recommended)
+4. `REPOPILOT_CONFIG=/path/to/config.json` (최우선)
 
 뒤에서 읽은 파일의 값이 앞의 값을 덮어씁니다.
 
-### `repopilot.config.json` 예시
+### `.repopilot/config.json` 예시
 
 ```json
 {
-  "defaults": {
-    "max_diff_bytes": 120000,
-    "system_prompt": "You are a strict senior code reviewer. Output Markdown with sections: Critical, Major, Minor, Suggestions.",
-    "review_guide_path": "./review-guide.md",
-    "comment_language": "ko",
-    "update_check_url": "https://gitlab.your-company.com/api/v4/projects/<PROJECT_ID>/releases/permalink/latest",
-    "update_download_url": "https://gitlab.your-company.com/your-group/your-project/-/releases",
-    "update_timeout_ms": 1200
-  },
-  "hosts": {
-    "github.com": {
-      "token_env": "GITHUB_TOKEN"
-    },
-    "gitlab.com": {
-      "token_env": "GITLAB_TOKEN"
-    }
-  },
-  "providers": {
-    "openai": {
-      "enabled": true,
-      "api_key_env": "OPENAI_API_KEY",
-      "model": "gpt-4.1-mini"
-    },
-    "anthropic": {
-      "enabled": true,
-      "api_key_env": "ANTHROPIC_API_KEY",
-      "model": "claude-3-7-sonnet-latest"
-    },
-    "gemini": {
-      "enabled": true,
-      "api_key_env": "GEMINI_API_KEY",
-      "model": "gemini-2.0-flash",
-      "command": "gemini",
-      "args": []
-    }
-  }
-}
+	  "defaults": {
+	    "max_diff_bytes": 120000,
+	    "system_prompt": "You are a strict senior code reviewer. Output Markdown with sections: Critical, Major, Minor, Suggestions.",
+	    "review_guide_path": ".repopilot/review-guide.md",
+	    "comment_language": "ko",
+	    "update_check_url": "https://gitlab.your-company.com/api/v4/projects/<PROJECT_ID>/releases/permalink/latest",
+	    "update_download_url": "https://gitlab.your-company.com/your-group/your-project/-/releases",
+	    "update_timeout_ms": 1200
+	  },
+	  "hosts": {
+	    "github.com": {
+	      "token_env": "GITHUB_TOKEN",
+	      "token_command": ["gh", "auth", "token"]
+	    },
+	    "gitlab.com": {
+	      "token_env": "GITLAB_TOKEN",
+	      "token_command": ["glab", "auth", "token"]
+	    }
+	  },
+	  "providers": {
+	    "openai": {
+	      "enabled": true,
+	      "api_key_env": "OPENAI_API_KEY",
+	      "model": "gpt-4.1-mini",
+	      "command": "codex",
+	      "args": ["exec"],
+	      "auto_auth": true,
+	      "auth_command": ["codex", "login"]
+	    },
+	    "anthropic": {
+	      "enabled": true,
+	      "api_key_env": "ANTHROPIC_API_KEY",
+	      "model": "claude-3-7-sonnet-latest",
+	      "command": "claude",
+	      "args": [],
+	      "auto_auth": true,
+	      "auth_command": ["claude", "login"]
+	    },
+	    "gemini": {
+	      "enabled": true,
+	      "api_key_env": "GEMINI_API_KEY",
+	      "model": "gemini-2.0-flash",
+	      "command": "gemini",
+	      "args": [],
+	      "auto_auth": true,
+	      "auth_command": ["gemini", "login"]
+	    }
+	  }
+	}
 ```
 
 ### Provider 설정 필드

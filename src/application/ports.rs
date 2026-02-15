@@ -9,7 +9,7 @@ use crate::domain::review::{
     AgentComment, AgentReaction, ProviderResponse, ReviewComment, ReviewRequest,
 };
 use crate::domain::target::ReviewTarget;
-use crate::infrastructure::config::{Config, HostConfig};
+use crate::application::config::{Config, HostConfig, ProviderConfig};
 
 /// 설정 로딩/점검을 담당하는 저장소 포트.
 pub trait ConfigRepository: Send + Sync {
@@ -17,6 +17,51 @@ pub trait ConfigRepository: Send + Sync {
     fn inspect_pretty_json(&self) -> Result<String>;
     /// 편집 가능한 설정 파일 경로를 반환한다.
     fn editable_config_path(&self) -> Result<PathBuf>;
+}
+
+/// 호스트(VCS) 토큰 해석 결과.
+#[derive(Debug, Clone)]
+pub struct HostTokenResolution {
+    pub token: Option<String>,
+    pub source: Option<String>,
+}
+
+/// 호스트(VCS) 인증 토큰을 해석하는 포트.
+/// - 환경변수/외부 커맨드(OAuth CLI 등) 접근은 구현체(인프라)에서만 수행한다.
+pub trait HostTokenResolver: Send + Sync {
+    fn resolve(&self, host: &str, host_cfg: Option<&HostConfig>) -> Result<HostTokenResolution>;
+}
+
+/// 시스템 프롬프트를 구성/해석하는 포트.
+/// - review guide 파일 접근 등 I/O는 구현체(인프라)에서 수행한다.
+pub trait SystemPromptResolver: Send + Sync {
+    fn resolve(&self, config: &Config) -> Result<String>;
+}
+
+/// VCS OAuth 인증 실행 종류.
+#[derive(Debug, Clone, Copy)]
+pub enum VcsAuthKind {
+    GitHub,
+    GitLab,
+}
+
+/// VCS OAuth 인증을 실행하는 포트(예: gh/glab login).
+pub trait VcsAuthenticator: Send + Sync {
+    fn authenticate(&self, kind: VcsAuthKind, host: &str) -> Result<()>;
+}
+
+/// Provider OAuth 인증 종류.
+#[derive(Debug, Clone, Copy)]
+pub enum ProviderAuthKind {
+    Codex,
+    Claude,
+    Gemini,
+}
+
+/// Provider OAuth 인증을 실행하는 포트(예: codex/claude/gemini login).
+pub trait ProviderAuthenticator: Send + Sync {
+    fn authenticate(&self, kind: ProviderAuthKind, provider_cfg: Option<&ProviderConfig>)
+        -> Result<()>;
 }
 
 /// URL 입력값을 도메인 대상 식별자로 변환하는 포트.

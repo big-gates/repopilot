@@ -38,9 +38,9 @@ pub(super) async fn build_review_request(
     }
 
     use_case.reporter.section("Prompt");
-    let system_prompt = ctx
-        .config
-        .resolved_system_prompt()
+    let system_prompt = use_case
+        .system_prompt_resolver
+        .resolve(&ctx.config)
         .context("failed to resolve system prompt with review guide")?;
 
     if let Some(path) = &ctx.config.defaults.review_guide_path {

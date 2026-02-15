@@ -5,8 +5,9 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 use super::loader::LoadedConfig;
-use super::types::{DefaultsConfig, HostConfig, ProviderConfig};
+use super::resolve::{resolve_host_token, resolve_provider_api_key};
 use super::utils::command_exists;
+use crate::application::config::{DefaultsConfig, HostConfig, ProviderConfig};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ConfigInspection {
@@ -112,7 +113,8 @@ impl ConfigInspection {
 impl ProviderInspection {
     fn from_config(cfg: &ProviderConfig, default_command: &str) -> Self {
         let enabled = cfg.is_enabled();
-        let api_ready = cfg.resolve_api_key().is_some();
+        let api_resolution = resolve_provider_api_key(cfg);
+        let api_ready = api_resolution.credential.is_some();
         let command_spec = cfg.command_spec(default_command);
         let command = command_spec.as_ref().map(|s| s.command.clone());
         let args = command_spec
@@ -142,16 +144,20 @@ impl ProviderInspection {
             args,
             use_stdin,
             command_available,
-            api_key_source: cfg.api_key_source_label(),
-            api_key_resolved: cfg.resolve_api_key().is_some(),
+            api_key_source: api_resolution.source,
+            api_key_resolved: api_ready,
         }
     }
 }
 
 fn host_inspection(cfg: &HostConfig) -> HostInspection {
+    let token_resolution = resolve_host_token(Some(cfg)).ok();
     HostInspection {
-        token_source: cfg.token_source_label(),
-        token_resolved: cfg.resolve_token().is_some(),
+        token_source: token_resolution.as_ref().and_then(|r| r.source.clone()),
+        token_resolved: token_resolution
+            .as_ref()
+            .and_then(|r| r.token.as_ref())
+            .is_some(),
         api_base: cfg.api_base.clone(),
     }
 }

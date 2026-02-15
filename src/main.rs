@@ -57,5 +57,19 @@ async fn main() {
                 std::process::exit(1);
             }
         }
+        CliAction::Auth { kind, host } => {
+            let composition = AppComposition::default();
+            if let Err(err) = composition.auth_vcs_usecase().execute(kind, &host) {
+                eprintln!("error: {err:#}");
+                std::process::exit(1);
+            }
+        }
+        CliAction::AuthProvider { kind } => {
+            let composition = AppComposition::default();
+            if let Err(err) = composition.auth_provider_usecase().execute(kind) {
+                eprintln!("error: {err:#}");
+                std::process::exit(1);
+            }
+        }
     }
 }

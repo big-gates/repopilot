@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde_json::json;
 
-use super::types::Config;
-use super::types::DEFAULT_SYSTEM_PROMPT;
+use crate::application::config::Config;
+use crate::application::config::DEFAULT_SYSTEM_PROMPT;
 
 #[derive(Debug, Clone)]
 pub(crate) struct LoadedConfig {
@@ -81,7 +81,6 @@ pub fn config_paths() -> Vec<PathBuf> {
     }
 
     paths.push(PathBuf::from(".repopilot/config.json"));
-    paths.push(PathBuf::from("repopilot.config.json"));
 
     if let Ok(path) = env::var("REPOPILOT_CONFIG") {
         paths.push(Path::new(&path).to_path_buf());
@@ -118,7 +117,7 @@ fn default_bootstrap_config_path() -> PathBuf {
     if let Ok(path) = env::var("REPOPILOT_CONFIG") {
         return PathBuf::from(path);
     }
-    PathBuf::from("repopilot.config.json")
+    PathBuf::from(".repopilot/config.json")
 }
 
 fn bootstrap_template_bundle(config_path: &Path) -> Result<()> {
@@ -165,10 +164,12 @@ fn bootstrap_template_bundle(config_path: &Path) -> Result<()> {
         },
         "hosts": {
             "github.com": {
-                "token_env": "GITHUB_TOKEN"
+                "token_env": "GITHUB_TOKEN",
+                "token_command": ["gh", "auth", "token"]
             },
             "gitlab.com": {
-                "token_env": "GITLAB_TOKEN"
+                "token_env": "GITLAB_TOKEN",
+                "token_command": ["glab", "auth", "token"]
             }
         },
         "providers": {
@@ -177,6 +178,8 @@ fn bootstrap_template_bundle(config_path: &Path) -> Result<()> {
                 "api_key_env": "OPENAI_API_KEY",
                 "model": "gpt-4.1-mini",
                 "command": "codex",
+                "auto_auth": true,
+                "auth_command": ["codex", "login"],
                 "args": ["exec"]
             },
             "anthropic": {
@@ -184,6 +187,8 @@ fn bootstrap_template_bundle(config_path: &Path) -> Result<()> {
                 "api_key_env": "ANTHROPIC_API_KEY",
                 "model": "claude-3-7-sonnet-latest",
                 "command": "claude",
+                "auto_auth": true,
+                "auth_command": ["claude", "login"],
                 "args": []
             },
             "gemini": {
@@ -191,6 +196,8 @@ fn bootstrap_template_bundle(config_path: &Path) -> Result<()> {
                 "api_key_env": "GEMINI_API_KEY",
                 "model": "gemini-2.0-flash",
                 "command": "gemini",
+                "auto_auth": true,
+                "auth_command": ["gemini", "login"],
                 "args": []
             }
         }
@@ -202,10 +209,6 @@ fn bootstrap_template_bundle(config_path: &Path) -> Result<()> {
 }
 
 fn default_review_guide_path(config_path: &Path) -> PathBuf {
-    if config_path == Path::new("repopilot.config.json") {
-        return PathBuf::from("review-guide.md");
-    }
-
     match config_path.parent() {
         Some(parent) if !parent.as_os_str().is_empty() => parent.join("review-guide.md"),
         _ => PathBuf::from("review-guide.md"),

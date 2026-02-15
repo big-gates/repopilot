@@ -12,14 +12,14 @@ pub struct JsonConfigRepository;
 
 impl ConfigRepository for JsonConfigRepository {
     fn load(&self) -> Result<config::Config> {
-        config::Config::load()
+        config::load()
     }
 
     fn inspect_pretty_json(&self) -> Result<String> {
-        config::Config::inspect_pretty_json()
+        config::inspect_pretty_json()
     }
 
     fn editable_config_path(&self) -> Result<PathBuf> {
-        config::Config::editable_path()
+        config::editable_path()
     }
 }
