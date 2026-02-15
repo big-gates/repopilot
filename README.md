@@ -86,7 +86,7 @@ cargo run --bin repopilot -- "https://github.com/org/repo/pull/123" --dry-run
 ```bash
 GITLAB_TOKEN=<YOUR_TOKEN> \
 scripts/publish-gitlab.sh \
-  --project-id <PROEJCT_ID> \
+  --project-id <PROJECT_ID> \
   --tag v0.1.0 \
   --gitlab-url https://gitlab.your-company.com
 ```
@@ -114,7 +114,7 @@ Windows 배포 스크립트도 기본적으로 태그를 생성/푸시합니다.
 macOS/Linux:
 ```bash
 scripts/install-gitlab.sh \
-  --project-id <PROEJCT_ID> \
+  --project-id <PROJECT_ID> \
   --tag v0.1.0 \
   --gitlab-url https://gitlab.your-company.com \
   --token <YOUR_TOKEN>
@@ -216,7 +216,7 @@ repopilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
     "system_prompt": "You are a strict senior code reviewer. Output Markdown with sections: Critical, Major, Minor, Suggestions.",
     "review_guide_path": "./review-guide.md",
     "comment_language": "ko",
-    "update_check_url": "https://gitlab.your-company.com/api/v4/projects/<PROEJCT_ID>/releases/permalink/latest",
+    "update_check_url": "https://gitlab.your-company.com/api/v4/projects/<PROJECT_ID>/releases/permalink/latest",
     "update_download_url": "https://gitlab.your-company.com/your-group/your-project/-/releases",
     "update_timeout_ms": 1200
   },
