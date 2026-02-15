@@ -12,7 +12,6 @@
 .env.*
 
 # Local generated files
-/repopilot.config.json
 /.repopilot/
 /review-guide.md
 /repopilot-*.tar.gz
