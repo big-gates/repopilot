@@ -1,10 +1,11 @@
 //! VCS OAuth 인증 포트 구현(gh/glab).
 
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result, bail};
 
 use crate::application::ports::{VcsAuthKind, VcsAuthenticator};
+use crate::infrastructure::config::command_exists;
 
 /// 외부 CLI를 이용해 OAuth 로그인을 수행한다.
 pub struct VcsAuthenticatorAdapter;
@@ -19,6 +20,16 @@ impl VcsAuthenticator for VcsAuthenticatorAdapter {
 }
 
 fn gh_auth_login(host: &str) -> Result<()> {
+    if !command_exists("gh") {
+        bail!(
+            "GitHub CLI (`gh`) not found in PATH.\n\
+Install it first, then re-run `repopilot auth github`.\n\
+- macOS: brew install gh\n\
+- Windows: winget install --id GitHub.cli\n\
+- Linux: install `gh` via your package manager"
+        );
+    }
+
     let mut cmd = Command::new("gh");
     cmd.args(["auth", "login"]);
     if host != "github.com" {
@@ -26,6 +37,9 @@ fn gh_auth_login(host: &str) -> Result<()> {
     }
 
     let status = cmd
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
         .status()
         .with_context(|| "failed to run `gh auth login` (install GitHub CLI: gh)")?;
     if !status.success() {
@@ -35,6 +49,16 @@ fn gh_auth_login(host: &str) -> Result<()> {
 }
 
 fn glab_auth_login(host: &str) -> Result<()> {
+    if !command_exists("glab") {
+        bail!(
+            "GitLab CLI (`glab`) not found in PATH.\n\
+Install it first, then re-run `repopilot auth gitlab`.\n\
+- macOS: brew install glab\n\
+- Windows: winget install --id glab.glab\n\
+- Linux: install `glab` via your package manager"
+        );
+    }
+
     let mut cmd = Command::new("glab");
     cmd.args(["auth", "login"]);
     if host != "gitlab.com" {
@@ -42,6 +66,9 @@ fn glab_auth_login(host: &str) -> Result<()> {
     }
 
     let status = cmd
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
         .status()
         .with_context(|| "failed to run `glab auth login` (install GitLab CLI: glab)")?;
     if !status.success() {
@@ -49,4 +76,3 @@ fn glab_auth_login(host: &str) -> Result<()> {
     }
     Ok(())
 }
-

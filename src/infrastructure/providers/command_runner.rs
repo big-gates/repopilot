@@ -8,6 +8,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 use crate::domain::review::ProviderResponse;
+use crate::infrastructure::config::command_exists;
 use crate::infrastructure::config::ProviderCommandSpec;
 
 use super::usage_parser::parse_usage;
@@ -82,6 +83,16 @@ async fn run_auth_command(provider_name: &str, cmd: &[String]) -> Result<()> {
         .filter(|s| !s.is_empty())
         .context("auth_command is empty")?;
     let args: Vec<&str> = cmd.iter().skip(1).map(|s| s.as_str()).collect();
+
+    if !command_exists(program) {
+        bail!("auth command program not found in PATH: '{program}'");
+    }
+
+    if args.is_empty() && program == "claude" {
+        eprintln!("{provider_name}: Claude login is interactive. Type `/login`, finish auth, then exit.");
+    } else if args.is_empty() && program == "gemini" {
+        eprintln!("{provider_name}: Gemini login is interactive. Choose Login with Google, finish auth, then exit.");
+    }
 
     let status = Command::new(program)
         .args(&args)

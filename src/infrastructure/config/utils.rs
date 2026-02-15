@@ -6,7 +6,7 @@ use std::path::Path;
 /// 로컬 명령이 실행 가능한지 탐지한다.
 pub fn command_exists(command: &str) -> bool {
     // 절대/상대 경로가 주어지면 파일 존재만 검사한다.
-    if command.is_empty() {
+    if command.trim().is_empty() {
         return false;
     }
 
@@ -20,11 +20,41 @@ pub fn command_exists(command: &str) -> bool {
     };
 
     // 일반 명령은 PATH를 순회해 탐지한다.
-    for dir in env::split_paths(&path_var) {
-        if dir.join(command).is_file() {
-            return true;
+    #[cfg(windows)]
+    {
+        // Windows는 확장자를 생략할 수 있으므로 PATHEXT를 고려한다.
+        let has_ext = command_path.extension().is_some();
+        let pathext = env::var_os("PATHEXT").unwrap_or_else(|| ".EXE;.CMD;.BAT;.COM".into());
+        let exts: Vec<String> = pathext
+            .to_string_lossy()
+            .split(';')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+            .collect();
+
+        for dir in env::split_paths(&path_var) {
+            if dir.join(command).is_file() {
+                return true;
+            }
+            if !has_ext {
+                for ext in &exts {
+                    if dir.join(format!("{command}{ext}")).is_file() {
+                        return true;
+                    }
+                }
+            }
         }
+        return false;
     }
 
-    false
+    #[cfg(not(windows))]
+    {
+        for dir in env::split_paths(&path_var) {
+            if dir.join(command).is_file() {
+                return true;
+            }
+        }
+        false
+    }
 }

@@ -37,23 +37,23 @@ enum Commands {
 
 #[derive(Debug, Subcommand)]
 enum AuthProvider {
-    /// GitHub OAuth login (`gh auth login`)
+    /// GitHub OAuth login (`gh auth login`). Requires GitHub CLI: `gh`
     Github {
         /// GitHub hostname (default: github.com)
         #[arg(long, default_value = "github.com")]
         host: String,
     },
-    /// GitLab OAuth login (`glab auth login`)
+    /// GitLab OAuth login (`glab auth login`). Requires GitLab CLI: `glab`
     Gitlab {
         /// GitLab hostname (default: gitlab.com)
         #[arg(long, default_value = "gitlab.com")]
         host: String,
     },
-    /// OpenAI/Codex OAuth login (provider CLI)
+    /// OpenAI/Codex OAuth login (provider CLI). Requires `codex`
     Codex,
-    /// Anthropic/Claude OAuth login (provider CLI)
+    /// Anthropic/Claude OAuth login (provider CLI). Requires `claude`
     Claude,
-    /// Google Gemini OAuth login (provider CLI)
+    /// Google Gemini OAuth login (provider CLI). Requires `gemini`
     Gemini,
 }
 

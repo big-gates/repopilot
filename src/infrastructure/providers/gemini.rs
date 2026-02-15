@@ -71,7 +71,7 @@ impl GeminiProvider {
             .auth_command
             .clone()
             .filter(|v| !v.is_empty())
-            .or_else(|| Some(vec![spec.command.clone(), "login".to_string()]));
+            .or_else(|| Some(vec![spec.command.clone()]));
 
         Some(Self {
             backend: GeminiBackend::Cli(CliBackend {

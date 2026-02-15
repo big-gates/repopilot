@@ -188,8 +188,9 @@ fn bootstrap_template_bundle(config_path: &Path) -> Result<()> {
                 "model": "claude-3-7-sonnet-latest",
                 "command": "claude",
                 "auto_auth": true,
-                "auth_command": ["claude", "login"],
-                "args": []
+                "auth_command": ["claude"],
+                "use_stdin": false,
+                "args": ["-p", "{prompt}"]
             },
             "gemini": {
                 "enabled": true,
@@ -197,8 +198,9 @@ fn bootstrap_template_bundle(config_path: &Path) -> Result<()> {
                 "model": "gemini-2.0-flash",
                 "command": "gemini",
                 "auto_auth": true,
-                "auth_command": ["gemini", "login"],
-                "args": []
+                "auth_command": ["gemini"],
+                "use_stdin": false,
+                "args": ["-p", "{prompt}"]
             }
         }
     });

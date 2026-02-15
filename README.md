@@ -53,19 +53,40 @@
 
 `RepoPilot` provider는 두 가지 실행 모드를 지원합니다.
 
-- API 모드(권장): provider별 `api_key` 또는 `api_key_env` 설정
-- CLI 모드: 로컬 바이너리(`codex`/`claude`/`gemini`) 설치 + 로그인
+- API 모드(권장): provider별 `api_key` 또는 `api_key_env` 설정 (CLI 설치 불필요)
+- CLI 모드: 로컬 바이너리(`codex`/`claude`/`gemini`) 설치 + 로그인(OAuth)
 
 동작 우선순위: **API key가 있으면 API 모드**, 없으면 CLI 모드.
 
-VCS 코멘트/노트 작성에는 host 토큰이 필요합니다.
-- PAT: `GITHUB_TOKEN` / `GITLAB_TOKEN` 환경변수 또는 `hosts.<host>.token` 설정
-- OAuth(권장): `gh`/`glab` 설치 후 `repopilot auth github` / `repopilot auth gitlab` 실행 (`hosts.<host>.token_command` 사용)
+### (필수) VCS 토큰 준비
 
-Provider(Codex/Claude/Gemini)도 CLI 모드라면 로그인(OAuth)이 필요할 수 있습니다.
-- `repopilot auth codex`
-- `repopilot auth claude`
-- `repopilot auth gemini`
+VCS 코멘트/노트 작성에는 host 토큰이 필요합니다.
+
+- PAT(간단): `GITHUB_TOKEN` / `GITLAB_TOKEN` 환경변수 또는 `hosts.<host>.token` 설정
+- OAuth(권장): `gh`/`glab` 설치 후 로그인
+  - `repopilot auth github` (GitHub: `gh auth login`)
+  - `repopilot auth gitlab` (GitLab: `glab auth login`)
+
+`gh`/`glab` 설치 예시:
+
+- macOS(Homebrew): `brew install gh glab`
+- Windows(winget): `winget install --id GitHub.cli` / `winget install --id glab.glab`
+- Linux: 배포판 패키지 매니저로 설치(또는 공식 릴리즈 바이너리)
+
+### (선택) Provider CLI 모드 준비
+
+API 키를 쓰지 않고 로컬 CLI를 사용하려면 provider CLI 설치와 로그인이 필요할 수 있습니다.
+
+- Codex: `codex` (install: `npm install -g @openai/codex`)
+  - 로그인: `repopilot auth codex` (내부적으로 `codex login`)
+- Claude Code: `claude` (install: `npm install -g @anthropic-ai/claude-code`)
+  - 로그인: `repopilot auth claude` (CLI 실행 후 `/login`)
+- Gemini CLI: `gemini` (install: `npm install -g @google/gemini-cli`)
+  - 로그인: `repopilot auth gemini` (CLI 실행 후 Login with Google)
+
+참고:
+- Node.js가 없으면 `npm` 설치 방식은 사용할 수 없습니다(대신 brew/winget 등 사용).
+- API 키 모드라면 provider CLI가 없어도 됩니다: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`.
 
 ## 설치 / 빌드
 
@@ -253,18 +274,20 @@ repopilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
 	      "api_key_env": "ANTHROPIC_API_KEY",
 	      "model": "claude-3-7-sonnet-latest",
 	      "command": "claude",
-	      "args": [],
+	      "use_stdin": false,
+	      "args": ["-p", "{prompt}"],
 	      "auto_auth": true,
-	      "auth_command": ["claude", "login"]
+	      "auth_command": ["claude"]
 	    },
 	    "gemini": {
 	      "enabled": true,
 	      "api_key_env": "GEMINI_API_KEY",
 	      "model": "gemini-2.0-flash",
 	      "command": "gemini",
-	      "args": [],
+	      "use_stdin": false,
+	      "args": ["-p", "{prompt}"],
 	      "auto_auth": true,
-	      "auth_command": ["gemini", "login"]
+	      "auth_command": ["gemini"]
 	    }
 	  }
 	}
@@ -279,6 +302,8 @@ repopilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
 - `command`: CLI 모드에서 실행할 로컬 명령 이름 또는 경로
 - `args`: CLI 모드 명령 인자 배열
 - `use_stdin` (선택): CLI 모드에서 프롬프트 전달 시 기본값 `true`
+- `auto_auth` (선택): CLI 모드에서 인증 오류 감지 시 `auth_command`를 1회 실행 후 재시도(기본 `true`, TTY에서만 동작)
+- `auth_command` (선택): OAuth/로그인용 커맨드 배열(예: `["codex","login"]`, `["claude"]`, `["gemini"]`)
 - `defaults.review_guide_path`: 리뷰 지침 Markdown 파일 경로. 내용이 system prompt에 추가됨
 - `defaults.comment_language`: 리뷰 결과 언어 (`ko` 또는 `en`, 기본값 `ko`)
 - `defaults.update_check_url`: 최신 버전 확인 endpoint (plain text 버전 문자열 또는 JSON)
