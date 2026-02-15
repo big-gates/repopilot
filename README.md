@@ -80,7 +80,7 @@ API 키를 쓰지 않고 로컬 CLI를 사용하려면 provider CLI 설치와 �
 - Codex: `codex` (install: `npm install -g @openai/codex`)
   - 로그인: `repopilot auth codex` (내부적으로 `codex login`)
 - Claude Code: `claude` (install: `npm install -g @anthropic-ai/claude-code`)
-  - 로그인: `repopilot auth claude` (CLI 실행 후 `/login`)
+  - 로그인: `repopilot auth claude` (내부적으로 `claude auth login`)
 - Gemini CLI: `gemini` (install: `npm install -g @google/gemini-cli`)
   - 로그인: `repopilot auth gemini` (CLI 실행 후 Login with Google)
 
@@ -277,7 +277,7 @@ repopilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
 	      "use_stdin": false,
 	      "args": ["-p", "{prompt}"],
 	      "auto_auth": true,
-	      "auth_command": ["claude"]
+	      "auth_command": ["claude", "auth", "login"]
 	    },
 	    "gemini": {
 	      "enabled": true,
@@ -303,7 +303,7 @@ repopilot "https://gitlab.com/group/subgroup/repo/-/merge_requests/45"
 - `args`: CLI 모드 명령 인자 배열
 - `use_stdin` (선택): CLI 모드에서 프롬프트 전달 시 기본값 `true`
 - `auto_auth` (선택): CLI 모드에서 인증 오류 감지 시 `auth_command`를 1회 실행 후 재시도(기본 `true`, TTY에서만 동작)
-- `auth_command` (선택): OAuth/로그인용 커맨드 배열(예: `["codex","login"]`, `["claude"]`, `["gemini"]`)
+- `auth_command` (선택): OAuth/로그인용 커맨드 배열(예: `["codex","login"]`, `["claude","auth","login"]`, `["gemini"]`)
 - `defaults.review_guide_path`: 리뷰 지침 Markdown 파일 경로. 내용이 system prompt에 추가됨
 - `defaults.comment_language`: 리뷰 결과 언어 (`ko` 또는 `en`, 기본값 `ko`)
 - `defaults.update_check_url`: 최신 버전 확인 endpoint (plain text 버전 문자열 또는 JSON)

@@ -188,7 +188,7 @@ fn bootstrap_template_bundle(config_path: &Path) -> Result<()> {
                 "model": "claude-3-7-sonnet-latest",
                 "command": "claude",
                 "auto_auth": true,
-                "auth_command": ["claude"],
+                "auth_command": ["claude", "auth", "login"],
                 "use_stdin": false,
                 "args": ["-p", "{prompt}"]
             },

@@ -37,8 +37,9 @@ fn auth_command(kind: ProviderAuthKind, provider_cfg: Option<&ProviderConfig>) -
 
     match kind {
         ProviderAuthKind::Codex => vec![program, "login".to_string()],
-        // Claude Code / Gemini CLI는 보통 interactive 세션에서 로그인 플로우를 진행한다.
-        ProviderAuthKind::Claude | ProviderAuthKind::Gemini => vec![program],
+        ProviderAuthKind::Claude => vec![program, "auth".to_string(), "login".to_string()],
+        // Gemini CLI는 interactive 세션에서 로그인 플로우를 진행한다.
+        ProviderAuthKind::Gemini => vec![program],
     }
 }
 

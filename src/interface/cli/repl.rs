@@ -285,21 +285,29 @@ fn build_startup_dashboard_lines(composition: &AppComposition) -> Vec<String> {
                 .get("command_available")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
+            let auth_status = cfg
+                .get("auth_status")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
             let runnable = cfg
                 .get("runnable")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(available);
             let state = if enabled { "enabled" } else { "disabled" };
-            let run_status = if runnable { "ok" } else { "missing" };
             if resolved_mode == "api" {
-                lines.push(format!(
-                    "  - {key:<10} {state:<8} mode=api ({run_status})"
-                ));
+                let run_status = if runnable { "ok" } else { "missing" };
+                lines.push(format!("  - {key:<10} {state:<8} api auth=ok ({run_status})"));
+            } else if !available {
+                lines.push(format!("  - {key:<10} {state:<8} cli {command} cmd=missing"));
             } else {
-                let cmd_status = if available { "ok" } else { "missing" };
                 lines.push(format!(
-                    "  - {key:<10} {state:<8} mode=cli cmd={command} ({cmd_status})"
+                    "  - {key:<10} {state:<8} cli {command} auth={auth_status}"
                 ));
+                if auth_status != "ok"
+                    && let Some(hint) = cfg.get("auth_hint").and_then(|v| v.as_str())
+                {
+                    lines.push(format!("    {hint}"));
+                }
             }
         }
     }

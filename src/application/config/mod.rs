@@ -74,7 +74,7 @@ pub struct ProviderConfig {
     pub use_stdin: Option<bool>,
     /// CLI 모드에서 인증이 필요할 때 자동으로 로그인 시도할지 여부(기본 true)
     pub auto_auth: Option<bool>,
-    /// OAuth/로그인용 커맨드 (예: ["codex","login"], ["claude"], ["gemini"])
+    /// OAuth/로그인용 커맨드 (예: ["codex","login"], ["claude","auth","login"], ["gemini"])
     pub auth_command: Option<Vec<String>>,
 
     /// API 모드에서 사용할 모델 식별자(선택)

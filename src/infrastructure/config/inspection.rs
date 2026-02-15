@@ -1,8 +1,12 @@
 //! 적용 설정 진단(inspection) 뷰 모델.
 
 use std::collections::BTreeMap;
+use std::env;
+use std::path::PathBuf;
+use std::process::Command;
 
 use serde::Serialize;
+use serde_json::Value;
 
 use super::loader::LoadedConfig;
 use super::resolve::{resolve_host_token, resolve_provider_api_key};
@@ -53,6 +57,8 @@ pub struct ProviderInspection {
     pub args: Vec<String>,
     pub use_stdin: bool,
     pub command_available: bool,
+    pub auth_status: String,
+    pub auth_hint: Option<String>,
     pub api_key_source: Option<String>,
     pub api_key_resolved: bool,
 }
@@ -134,7 +140,26 @@ impl ProviderInspection {
         } else {
             "cli"
         };
-        let runnable = enabled && (api_ready || command_available);
+
+        let (auth_status, auth_hint) = if !enabled {
+            ("disabled".to_string(), None)
+        } else if api_ready {
+            ("ok".to_string(), None)
+        } else if !command_available {
+            (
+                "missing_cli".to_string(),
+                Some("hint: install provider CLI or set API key env".to_string()),
+            )
+        } else if let Some(program) = command.as_deref() {
+            probe_provider_cli_auth(default_command, program)
+        } else {
+            (
+                "unknown".to_string(),
+                Some("hint: configure providers.<name>.command".to_string()),
+            )
+        };
+
+        let runnable = enabled && (api_ready || (command_available && auth_status == "ok"));
 
         Self {
             enabled,
@@ -144,10 +169,123 @@ impl ProviderInspection {
             args,
             use_stdin,
             command_available,
+            auth_status,
+            auth_hint,
             api_key_source: api_resolution.source,
             api_key_resolved: api_ready,
         }
     }
+}
+
+fn probe_provider_cli_auth(default_command: &str, program: &str) -> (String, Option<String>) {
+    match default_command {
+        "codex" => probe_codex_cli_auth(program),
+        "claude" => probe_claude_cli_auth(program),
+        "gemini" => probe_gemini_cli_auth(program),
+        _ => (
+            "unknown".to_string(),
+            Some("hint: run the provider CLI once to authenticate".to_string()),
+        ),
+    }
+}
+
+fn probe_codex_cli_auth(program: &str) -> (String, Option<String>) {
+    let output = Command::new(program).args(["login", "status"]).output();
+    match output {
+        Ok(out) if out.status.success() => ("ok".to_string(), None),
+        Ok(_) => (
+            "missing".to_string(),
+            Some("hint: run `repopilot auth codex` (or set OPENAI_API_KEY)".to_string()),
+        ),
+        Err(_) => (
+            "unknown".to_string(),
+            Some("hint: run `repopilot auth codex` (or set OPENAI_API_KEY)".to_string()),
+        ),
+    }
+}
+
+fn probe_claude_cli_auth(program: &str) -> (String, Option<String>) {
+    let output = Command::new(program).args(["auth", "status"]).output();
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            if let Ok(v) = serde_json::from_str::<Value>(&stdout) {
+                if v.get("loggedIn").and_then(|v| v.as_bool()) == Some(true) {
+                    return ("ok".to_string(), None);
+                }
+                return (
+                    "missing".to_string(),
+                    Some("hint: run `repopilot auth claude` (or set ANTHROPIC_API_KEY)".to_string()),
+                );
+            }
+
+            if out.status.success() {
+                ("ok".to_string(), None)
+            } else {
+                (
+                    "missing".to_string(),
+                    Some("hint: run `repopilot auth claude` (or set ANTHROPIC_API_KEY)".to_string()),
+                )
+            }
+        }
+        Err(_) => (
+            "unknown".to_string(),
+            Some("hint: run `repopilot auth claude` (or set ANTHROPIC_API_KEY)".to_string()),
+        ),
+    }
+}
+
+fn probe_gemini_cli_auth(_program: &str) -> (String, Option<String>) {
+    if env::var("GEMINI_FORCE_ENCRYPTED_FILE_STORAGE")
+        .ok()
+        .is_some_and(|v| v.trim().eq_ignore_ascii_case("true"))
+    {
+        return (
+            "unknown".to_string(),
+            Some("hint: run `repopilot auth gemini` (or set GEMINI_API_KEY)".to_string()),
+        );
+    }
+
+    if has_non_empty_env("GEMINI_API_KEY")
+        || has_non_empty_env("GOOGLE_API_KEY")
+        || (has_non_empty_env("GOOGLE_CLOUD_PROJECT") && has_non_empty_env("GOOGLE_CLOUD_LOCATION"))
+        || has_non_empty_env("GOOGLE_APPLICATION_CREDENTIALS")
+    {
+        return ("ok".to_string(), None);
+    }
+
+    let Some(path) = gemini_oauth_creds_path() else {
+        return (
+            "unknown".to_string(),
+            Some("hint: run `repopilot auth gemini` (or set GEMINI_API_KEY)".to_string()),
+        );
+    };
+
+    if path.is_file() {
+        ("ok".to_string(), None)
+    } else {
+        (
+            "missing".to_string(),
+            Some("hint: run `repopilot auth gemini` (or set GEMINI_API_KEY)".to_string()),
+        )
+    }
+}
+
+fn gemini_oauth_creds_path() -> Option<PathBuf> {
+    let home = env::var("GEMINI_CLI_HOME")
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .or_else(dirs::home_dir)?;
+
+    Some(home.join(".gemini").join("oauth_creds.json"))
+}
+
+fn has_non_empty_env(key: &str) -> bool {
+    env::var(key)
+        .ok()
+        .is_some_and(|v| !v.trim().is_empty())
 }
 
 fn host_inspection(cfg: &HostConfig) -> HostInspection {

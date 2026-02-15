@@ -70,7 +70,13 @@ impl AnthropicProvider {
             .auth_command
             .clone()
             .filter(|v| !v.is_empty())
-            .or_else(|| Some(vec![spec.command.clone()]));
+            .or_else(|| {
+                Some(vec![
+                    spec.command.clone(),
+                    "auth".to_string(),
+                    "login".to_string(),
+                ])
+            });
 
         Some(Self {
             backend: AnthropicBackend::Cli(CliBackend {
