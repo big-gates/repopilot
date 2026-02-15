@@ -1,6 +1,6 @@
-//! `prpilot` 바이너리 진입점.
+//! `RepoPilot` 바이너리 진입점.
 
-use prpilot::interface::cli::{AppComposition, Cli, CliAction, run_repl};
+use repopilot::interface::cli::{AppComposition, Cli, CliAction, run_repl};
 
 #[tokio::main]
 async fn main() {

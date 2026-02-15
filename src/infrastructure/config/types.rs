@@ -69,10 +69,13 @@ pub struct ProviderConfig {
     /// 프롬프트를 stdin으로 전달할지 여부(기본 true)
     pub use_stdin: Option<bool>,
 
-    // legacy/optional fields kept for compatibility
+    /// API 모드에서 사용할 모델 식별자(선택)
     pub model: Option<String>,
+    /// API 모드 베이스 URL(선택)
     pub api_base: Option<String>,
+    /// API 모드 인증 키/토큰(직접값)
     pub api_key: Option<String>,
+    /// API 모드 인증 키/토큰을 읽을 환경변수 이름
     pub api_key_env: Option<String>,
 }
 

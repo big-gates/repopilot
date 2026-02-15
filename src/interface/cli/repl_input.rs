@@ -73,7 +73,7 @@ fn supports_interactive_input() -> bool {
 
 fn read_line_fallback(initial: &str) -> Result<Option<String>> {
     // 대체 입력 모드에서도 프리필 문자열을 동일하게 적용한다.
-    print!("prpilot> {initial}");
+    print!("repopilot> {initial}");
     io::stdout().flush()?;
 
     let mut line = String::new();

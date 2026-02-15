@@ -66,7 +66,7 @@ pub(super) fn build_enabled_providers(
     let providers = use_case.provider_factory.build(&ctx.config);
     if providers.is_empty() {
         bail!(
-            "no providers enabled. Configure providers.<name>.command (and optionally args/use_stdin), and ensure commands are installed"
+            "no providers enabled. Configure providers.<name>.api_key(_env) for API mode or providers.<name>.command for CLI mode"
         );
     }
 

@@ -1,9 +1,10 @@
-//! 로컬 provider 실행 공통 모듈.
-//! 각 CLI(codex/claude/gemini)를 호출하고 결과/사용량을 표준화한다.
+//! Provider 실행 공통 모듈.
+//! API 호출 또는 로컬 CLI(codex/claude/gemini)를 사용해 결과/사용량을 표준화한다.
 
 pub mod anthropic;
 pub mod gemini;
 pub mod openai;
+mod api_runner;
 mod command_runner;
 mod prompt;
 mod usage_parser;
@@ -30,7 +31,7 @@ pub trait ReviewProvider: Send + Sync {
 }
 
 pub fn build_providers(config: &Config) -> Vec<Box<dyn ReviewProvider>> {
-    // 커맨드가 실제로 존재하는 provider만 활성화한다.
+    // 각 provider가 API 또는 CLI 중 실행 가능한 백엔드를 선택해 활성화한다.
     let mut providers: Vec<Box<dyn ReviewProvider>> = Vec::new();
 
     if let Some(provider) = openai::OpenAiProvider::from_config(config) {

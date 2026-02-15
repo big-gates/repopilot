@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use crate::domain::review::RunOptions;
 
 #[derive(Debug, Parser)]
-#[command(name = "prpilot")]
+#[command(name = "repopilot")]
 #[command(about = "Multi-agent review for GitHub PRs and GitLab MRs")]
 pub struct Cli {
     #[command(subcommand)]

@@ -86,7 +86,7 @@ impl GitHubClient {
         let req = self
             .client
             .request(method, url)
-            .header("User-Agent", "prpilot")
+            .header("User-Agent", "repopilot")
             .header("Accept", "application/vnd.github+json");
 
         if let Some(token) = &self.token {
@@ -137,7 +137,7 @@ impl VcsProvider for GitHubClient {
         let mut req = self
             .client
             .get(self.pulls_endpoint())
-            .header("User-Agent", "prpilot")
+            .header("User-Agent", "repopilot")
             .header("Accept", "application/vnd.github.v3.diff");
         if let Some(token) = &self.token {
             req = req.bearer_auth(token);

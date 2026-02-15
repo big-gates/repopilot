@@ -21,8 +21,8 @@ Hexagonal 기준으로 `infrastructure`는 대표적인 아웃바운드 어댑�
 - 상위 계층에는 `ReviewComment`, `sha`, `diff` 등 의미 데이터만 전달
 
 ### 3) `providers`
-- `codex`, `claude`, `gemini` CLI 실행 담당
-- stdout/stderr 파싱, 재시도 전략(예: stdin not terminal) 담당
+- `codex`, `claude`, `gemini` API/CLI 실행 담당
+- API 요청/응답 파싱, CLI stdout/stderr 파싱, 재시도 전략(예: stdin not terminal) 담당
 - 파싱 실패는 상위로 일관된 에러로 전달
 
 ### 4) `render`

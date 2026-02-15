@@ -1,6 +1,6 @@
 # AGENTS.md (Root)
 
-이 문서는 `prpilot` 프로젝트의 **최상위 개발 규칙**이다.
+이 문서는 `RepoPilot` 프로젝트의 **최상위 개발 규칙**이다.
 세부 모듈 규칙은 `docs/agents/*.md`를 반드시 함께 따른다.
 
 ## 1. 절대 원칙 (Non-Negotiable)

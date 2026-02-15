@@ -11,6 +11,9 @@
 .env
 .env.*
 
-# prpilot local-only files
-/prpilot.config.json
+# Local generated files
+/repopilot.config.json
+/.repopilot/
 /review-guide.md
+/repopilot-*.tar.gz
+/scripts/

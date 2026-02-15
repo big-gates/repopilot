@@ -1,9 +1,10 @@
-//! `prpilot` 대화형 쉘(REPL) 인터페이스.
+//! `RepoPilot` 대화형 쉘(REPL) 인터페이스.
 
 use std::io::{self, IsTerminal, Write};
 use std::process::Command;
 
 use anyhow::{Context, Result};
+use serde_json::Value;
 
 use crate::domain::review::RunOptions;
 use crate::interface::cli::composition::AppComposition;
@@ -11,7 +12,7 @@ use crate::interface::cli::repl_input::read_repl_input;
 
 /// 대화형 입력으로 `/command`를 처리한다.
 pub async fn run_repl(composition: &AppComposition) -> Result<()> {
-    print_welcome();
+    print_welcome(composition);
     io::stdout().flush()?;
     let mut next_prefill: Option<String> = None;
 
@@ -162,14 +163,14 @@ fn parse_review_command(args: &[&str]) -> Result<RunOptions, String> {
     })
 }
 
-fn print_welcome() {
+fn print_welcome(composition: &AppComposition) {
     let interactive = io::stdout().is_terminal();
     if interactive {
         // 대화형 터미널에서는 시작 화면을 지우고 배너를 출력한다.
         print!("\x1b[2J\x1b[H");
     }
 
-    let title = paint("prpilot interactive shell", "1;36", interactive);
+    let title = paint("RepoPilot interactive shell", "1;36", interactive);
     let subtitle = paint("multi-agent review cockpit", "2;37", interactive);
     let cmd_palette = paint("/", "1;33", interactive);
     let cmd_config = paint("/config [edit]", "1;32", interactive);
@@ -179,6 +180,11 @@ fn print_welcome() {
     println!("+------------------------------------------------------------+");
     println!("| {:<58} |", title);
     println!("| {:<58} |", subtitle);
+    println!("+------------------------------------------------------------+");
+    println!("| Status Dashboard                                            |");
+    for line in build_startup_dashboard_lines(composition) {
+        println!("| {:<58} |", fit_box_line(&line, 58));
+    }
     println!("+------------------------------------------------------------+");
     println!("| Quick start                                                 |");
     println!("|  0) {:<54} |", cmd_palette);
@@ -195,4 +201,123 @@ fn paint(text: &str, ansi: &str, interactive: bool) -> String {
     } else {
         text.to_string()
     }
+}
+
+fn build_startup_dashboard_lines(composition: &AppComposition) -> Vec<String> {
+    let mut lines = Vec::new();
+
+    let inspection_json = match composition.inspect_config_usecase().execute() {
+        Ok(raw) => raw,
+        Err(err) => {
+            lines.push("Config: error".to_string());
+            lines.push(format!("detail: {err}"));
+            lines.push("hint: run `/config` to inspect and fix".to_string());
+            return lines;
+        }
+    };
+
+    let value: Value = match serde_json::from_str(&inspection_json) {
+        Ok(v) => v,
+        Err(_) => {
+            lines.push("Config: loaded (dashboard parse fallback)".to_string());
+            lines.push("hint: run `/config` to inspect details".to_string());
+            return lines;
+        }
+    };
+
+    let loaded_count = value
+        .get("loaded_paths")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.len())
+        .unwrap_or(0);
+    lines.push(format!("Config: ok (loaded files: {loaded_count})"));
+
+    let guide = value
+        .pointer("/effective_defaults/review_guide_path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("not set");
+    let lang = value
+        .pointer("/effective_defaults/comment_language")
+        .and_then(|v| v.as_str())
+        .unwrap_or("ko");
+    lines.push(format!("Review Guide: {guide}"));
+    lines.push(format!("Comment Language: {lang}"));
+
+    if let Some(hosts) = value.get("hosts").and_then(|v| v.as_object()) {
+        if hosts.is_empty() {
+            lines.push("Hosts: not configured".to_string());
+        } else {
+            for (host, cfg) in hosts {
+                let resolved = cfg
+                    .get("token_resolved")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                let token = if resolved { "resolved" } else { "missing" };
+                lines.push(format!("Host: {host} (token {token})"));
+            }
+        }
+    } else {
+        lines.push("Hosts: unavailable".to_string());
+    }
+
+    if let Some(providers) = value.get("providers").and_then(|v| v.as_object()) {
+        lines.push("Providers:".to_string());
+        for key in ["openai", "anthropic", "gemini"] {
+            let Some(cfg) = providers.get(key) else {
+                lines.push(format!("  - {key:<10} not configured"));
+                continue;
+            };
+            if cfg.is_null() {
+                lines.push(format!("  - {key:<10} not configured"));
+                continue;
+            }
+
+            let enabled = cfg
+                .get("enabled")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let resolved_mode = cfg
+                .get("resolved_mode")
+                .and_then(|v| v.as_str())
+                .unwrap_or("cli");
+            let command = cfg.get("command").and_then(|v| v.as_str()).unwrap_or("-");
+            let available = cfg
+                .get("command_available")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let runnable = cfg
+                .get("runnable")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(available);
+            let state = if enabled { "enabled" } else { "disabled" };
+            let run_status = if runnable { "ok" } else { "missing" };
+            if resolved_mode == "api" {
+                lines.push(format!(
+                    "  - {key:<10} {state:<8} mode=api ({run_status})"
+                ));
+            } else {
+                let cmd_status = if available { "ok" } else { "missing" };
+                lines.push(format!(
+                    "  - {key:<10} {state:<8} mode=cli cmd={command} ({cmd_status})"
+                ));
+            }
+        }
+    }
+
+    lines
+}
+
+fn fit_box_line(text: &str, width: usize) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    if chars.len() <= width {
+        return text.to_string();
+    }
+
+    if width <= 3 {
+        return ".".repeat(width);
+    }
+
+    let keep = width - 3;
+    let head: String = chars.into_iter().take(keep).collect();
+    format!("{head}...")
 }

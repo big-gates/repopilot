@@ -1,4 +1,4 @@
-//! prpilot library root.
+//! RepoPilot library root.
 //! Clean Architecture + DDD 계층을 외부에 노출한다.
 
 use anyhow::Result;

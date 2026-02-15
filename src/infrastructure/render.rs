@@ -5,7 +5,7 @@ use crate::domain::review::{AgentComment, AgentReaction};
 /// 리뷰 시작 상태를 나타내는 claim 코멘트 본문을 생성한다.
 pub fn render_claim_markdown(sha: &str, target_url: &str) -> String {
     format!(
-        "<!-- prpilot-bot claim sha={sha} -->\n\n# Multi-Agent Code Review\n\n- Target: {target_url}\n- Head SHA: `{sha}`\n\nReview in progress..."
+        "<!-- repopilot-bot claim sha={sha} -->\n\n# Multi-Agent Code Review\n\n- Target: {target_url}\n- Head SHA: `{sha}`\n\nReview in progress..."
     )
 }
 
@@ -13,7 +13,7 @@ pub fn render_claim_markdown(sha: &str, target_url: &str) -> String {
 pub fn render_agent_markdown(sha: &str, target_url: &str, agent: &AgentComment) -> String {
     let mut out = String::new();
     out.push_str(&format!(
-        "<!-- prpilot-bot agent={} sha={} -->\n\n",
+        "<!-- repopilot-bot agent={} sha={} -->\n\n",
         agent.provider_id, sha
     ));
     out.push_str(&format!("# Agent Review: {}\n\n", agent.provider_name));
@@ -33,7 +33,7 @@ pub fn render_final_summary_markdown(
     agent_comment_refs: &[(String, String)],
 ) -> String {
     let mut out = String::new();
-    out.push_str(&format!("<!-- prpilot-bot sha={sha} -->\n\n"));
+    out.push_str(&format!("<!-- repopilot-bot sha={sha} -->\n\n"));
     out.push_str("# Multi-Agent Review Summary\n\n");
     out.push_str(&format!("- Target: {target_url}\n"));
     out.push_str(&format!("- Head SHA: `{sha}`\n\n"));
@@ -65,5 +65,5 @@ pub fn render_final_summary_markdown(
 
 /// 동일 SHA/에이전트 코멘트를 식별하기 위한 마커 문자열을 만든다.
 pub fn agent_marker(provider_id: &str, sha: &str) -> String {
-    format!("<!-- prpilot-bot agent={} sha={} -->", provider_id, sha)
+    format!("<!-- repopilot-bot agent={} sha={} -->", provider_id, sha)
 }

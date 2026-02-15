@@ -46,12 +46,14 @@ pub struct ProvidersInspection {
 #[derive(Debug, Clone, Serialize)]
 pub struct ProviderInspection {
     pub enabled: bool,
+    pub resolved_mode: String,
+    pub runnable: bool,
     pub command: Option<String>,
     pub args: Vec<String>,
     pub use_stdin: bool,
     pub command_available: bool,
-    pub legacy_api_key_source: Option<String>,
-    pub legacy_api_key_resolved: bool,
+    pub api_key_source: Option<String>,
+    pub api_key_resolved: bool,
 }
 
 impl ConfigInspection {
@@ -110,6 +112,7 @@ impl ConfigInspection {
 impl ProviderInspection {
     fn from_config(cfg: &ProviderConfig, default_command: &str) -> Self {
         let enabled = cfg.is_enabled();
+        let api_ready = cfg.resolve_api_key().is_some();
         let command_spec = cfg.command_spec(default_command);
         let command = command_spec.as_ref().map(|s| s.command.clone());
         let args = command_spec
@@ -122,15 +125,25 @@ impl ProviderInspection {
             .as_ref()
             .map(|c| command_exists(c))
             .unwrap_or(false);
+        let resolved_mode = if !enabled {
+            "disabled"
+        } else if api_ready {
+            "api"
+        } else {
+            "cli"
+        };
+        let runnable = enabled && (api_ready || command_available);
 
         Self {
             enabled,
+            resolved_mode: resolved_mode.to_string(),
+            runnable,
             command,
             args,
             use_stdin,
             command_available,
-            legacy_api_key_source: cfg.api_key_source_label(),
-            legacy_api_key_resolved: cfg.resolve_api_key().is_some(),
+            api_key_source: cfg.api_key_source_label(),
+            api_key_resolved: cfg.resolve_api_key().is_some(),
         }
     }
 }

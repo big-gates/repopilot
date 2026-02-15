@@ -29,7 +29,7 @@ Hexagonal 기준으로 `domain`은 가장 안쪽(inside core)이다.
 4. 도메인에서 에러를 만들 때도 기술 세부사항을 노출하지 않는다.
 5. 포트 인터페이스도 도메인에 두지 않고 `application`에서 관리한다.
 
-## prpilot 도메인 규칙 예시
+## RepoPilot 도메인 규칙 예시
 
 - SHA 기반 마커 정책 (`final`, `claim`, `agent`)
 - 교차 에이전트 프롬프트 구성 정책

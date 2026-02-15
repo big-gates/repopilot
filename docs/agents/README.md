@@ -1,6 +1,6 @@
 # Agents Guide Index
 
-`prpilot`의 세부 개발 지침 모음.
+`RepoPilot`의 세부 개발 지침 모음.
 
 기본 전제: 이 프로젝트는 `Clean Architecture + DDD + Hexagonal Architecture(Ports & Adapters)`를 함께 적용한다.
 

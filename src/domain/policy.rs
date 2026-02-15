@@ -6,13 +6,13 @@ use crate::domain::review::{
 
 pub fn markers_for_sha(sha: &str) -> ReviewMarkers {
     ReviewMarkers {
-        final_marker: format!("<!-- prpilot-bot sha={} -->", sha),
-        claim_marker: format!("<!-- prpilot-bot claim sha={} -->", sha),
+        final_marker: format!("<!-- repopilot-bot sha={} -->", sha),
+        claim_marker: format!("<!-- repopilot-bot claim sha={} -->", sha),
     }
 }
 
 pub fn agent_marker(provider_id: &str, sha: &str) -> String {
-    format!("<!-- prpilot-bot agent={} sha={} -->", provider_id, sha)
+    format!("<!-- repopilot-bot agent={} sha={} -->", provider_id, sha)
 }
 
 pub fn find_comment_with_marker<'a>(
